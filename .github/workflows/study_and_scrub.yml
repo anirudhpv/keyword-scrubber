@@ -23,34 +23,28 @@ on:
 
 jobs:
   run-scrub:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, ARM64]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install Dependencies
+      - name: Set up Python Environment
         run: |
-          pip install --upgrade pip
-          pip install google-ads pydantic httpx
+          python3 -m venv venv || true
+          ./venv/bin/pip install --quiet google-ads pydantic httpx
 
-      - name: Run Google Ads Study & Jev Scrub
+      - name: Run Google Ads Study & Jev Decision Engine
         env:
-          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+          GOOGLE_ADS_DEVELOPER_TOKEN: *** secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
           GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
-          GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
-          GOOGLE_ADS_REFRESH_TOKEN: ${{ secrets.GOOGLE_ADS_REFRESH_TOKEN }}
+          GOOGLE_ADS_CLIENT_SECRET: *** secrets.GOOGLE_ADS_CLIENT_SECRET }}
+          GOOGLE_ADS_REFRESH_TOKEN: *** secrets.GOOGLE_ADS_REFRESH_TOKEN }}
           GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_LOGIN_CUSTOMER_ID }}
           TARGET_CUSTOMER_ID: ${{ inputs.customer_id }}
           DAYS_BACK: ${{ inputs.days }}
           ACTION_MODE: ${{ inputs.action }}
         run: |
-          python cli_pipeline.py
+          ./venv/bin/python3 cli_pipeline.py
 
       - name: Upload Report & Negatives CSV
         uses: actions/upload-artifact@v4
