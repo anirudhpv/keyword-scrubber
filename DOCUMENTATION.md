@@ -6,35 +6,40 @@
 
 ## 1. System Architecture Overview
 
-This project implements a **sub-millisecond Google Ads negative keyword and search intent scrubber** powered by **TypeSafe Jev (System 1 Decision Architecture)** running on a Raspberry Pi 5.
+This project implements a **sub-millisecond Google Ads negative keyword and search intent scrubber** powered by **TypeSafe Jev (System 1 Decision Architecture)** running on a Raspberry Pi 5, with dual deployment modes (Local Server & Client-Side Browser WASM).
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Google Ads Account                     │
-│  (Search Terms Report, Targeted KWs, Negative Lists, RSAs)  │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│           Google Ads API Client (v25.2 / Python SDK)        │
-│          (google_ads_service.py / api.py @ Port 8090)       │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│             TypeSafe Jev Decision Engine (Port 8080)        │
-│           (server.py / jev-server.service @ 0.01ms CPU)     │
-│   • noul: Safe vs Harmful / Commercial Intent Gate          │
-│   • choice: 4-Way Routing (Shared Neg, AG Neg, Promote, Review)│
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 Output Actions & Export                     │
-│   1. Direct 1-Click Mutation via Google Ads API             │
-│   2. Formatted Google Ads Editor CSV Download               │
-│   3. Interactive Web Review Dashboard (index.html)          │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Google Ads Account                            │
+│  (Search Terms Report, Targeted KWs, Negative Lists, RSAs, Landing Page)│
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 Dual Decision Engine Architecture                       │
+├────────────────────────────────────┬────────────────────────────────────┤
+│   MODE A: Local Pi Engine (500MB)  │   MODE B: Client WASM Engine (20MB)│
+│   • Runs on Raspberry Pi 5 CPU     │   • Downloaded from GitHub Pages   │
+│   • Q4_K_M small transformer       │   • 22M parameter INT8 encoder     │
+│   • For private automation & cron  │   • Zero server dependency         │
+└────────────────────────────────────┴────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 4-Way Jev Decision Routing (0.01ms)                     │
+│   1. 🌐 Shared Negative List (Universal waste: jobs, free, salary, pdf)│
+│   2. 🎯 Ad Group Negative (Local traffic sculpting / intent mismatch)   │
+│   3. 🟢 Promote to Keyword (High-intent commercial buyers)              │
+│   4. 🟡 Human Review / Discovery Queue (Abstain band / new patterns)    │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       Outputs & Execution                               │
+│   • Direct 1-Click Mutation via Google Ads API v25.2                    │
+│   • Formatted Google Ads Editor CSV Download                            │
+│   • Real-Time Interactive Review Table (index.html)                     │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -50,14 +55,27 @@ This project implements a **sub-millisecond Google Ads negative keyword and sear
 ### B. Google Ads Scrubber Application (`/home/apv/projects/jev-ads-scrubber/`)
 • `index.html`: High-density web application with live account discovery, keyword matrix, and review table.
 • `google_ads_service.py`: Google Ads API (v25.2) client handling GAQL queries for search terms, negatives, and keywords.
-• `api.py`: FastAPI backend bridging the web interface with Google Ads and Jev.
+• `api.py`: FastAPI backend bridging the web interface with Google Ads and Jev (Port `8090`).
 • `cli_pipeline.py`: Headless CLI and CI/CD runner script for batch processing without a browser.
 • `.github/workflows/study_and_scrub.yml`: GitHub Actions workflow enabling cloud runs using GitHub Secrets.
 • `~/.config/systemd/user/jev-ads-api.service`: Background user service for the ads API backend on port `8090`.
 
 ---
 
-## 3. Network Ports & Services
+## 3. Model Architecture & Size Mathematics
+
+| Dimension | Pi 5 Local Engine | Browser WASM Engine |
+|---|---|---|
+| **Parameter Count** | ~500 Million (0.5B) | ~22 Million (0.022B) |
+| **Quantization** | Q4_K_M (GGUF) | INT8 (1 byte per param) |
+| **Size on Disk / Transfer** | **~350 MB – 500 MB** | **~20 MB – 22 MB** |
+| **Execution Environment** | Pi 5 Cortex-A76 CPU | Client Browser Memory / WebGPU |
+| **Network Requirement** | Local host / private LAN | 100% Offline after 1s load |
+| **Cross-Industry Switching** | Dynamic context injection | Dynamic 50KB in-memory profile |
+
+---
+
+## 4. Network Ports & Services
 
 | Service | Port | Protocol | Purpose | Status |
 |---|---|---|---|---|
@@ -67,7 +85,7 @@ This project implements a **sub-millisecond Google Ads negative keyword and sear
 
 ---
 
-## 4. Git Repositories
+## 5. Git Repositories
 
 • **JevAds Scrubber:** `https://github.com/anirudhpv/jev-ads-scrubber` (`main` branch)
 • **Local Path:** `/home/apv/projects/jev-ads-scrubber`
