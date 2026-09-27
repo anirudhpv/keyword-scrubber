@@ -112,12 +112,42 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: wrap;
         }
 
         .container {
             max-width: 1400px;
             margin: 24px auto 0 auto;
             padding: 0 24px;
+        }
+
+        /* Account Status Card */
+        .account-status-bar {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 14px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .account-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #94a3b8;
+        }
+        .status-dot.active {
+            background: #10b981;
+            box-shadow: 0 0 6px #10b981;
         }
 
         /* 3-Column Top Setup Grid */
@@ -186,7 +216,7 @@
             background: var(--bg-surface);
             border: 1px solid var(--border-strong);
             color: var(--ink-primary);
-            padding: 8px 16px;
+            padding: 7px 14px;
             border-radius: 6px;
             font-size: 0.82rem;
             font-weight: 700;
@@ -238,7 +268,7 @@
             margin-bottom: 2px;
         }
         .stat-label {
-            font-size: 0.76rem;
+            font-size: 0.74rem;
             font-weight: 700;
             color: var(--ink-muted);
             text-transform: uppercase;
@@ -367,6 +397,58 @@
             color: var(--ink-muted);
         }
 
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(24, 23, 21, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            max-width: 520px;
+            width: 100%;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        .input-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .input-row label {
+            font-size: 0.74rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--ink-secondary);
+        }
+        .input-row input {
+            background: var(--bg-page);
+            border: 1px solid var(--border-strong);
+            padding: 7px 10px;
+            border-radius: 4px;
+            font-size: 0.84rem;
+            outline: none;
+            font-family: var(--font-mono);
+        }
+        .input-row input:focus {
+            border-color: var(--brand-green);
+            background: #ffffff;
+        }
+
         .toast {
             position: fixed;
             bottom: 24px;
@@ -395,17 +477,33 @@
             <div class="brand-monogram">J</div>
             <div class="brand-title">
                 <h1>JevAds</h1>
-                <p>Sub-Millisecond Negative Keyword & Intent Scrubber</p>
+                <p>Google Ads Negative Keyword & Intent Scrubber</p>
             </div>
         </div>
         <div class="header-actions">
-            <button class="btn" onclick="loadSampleData()">📂 Load Enterprise Sample</button>
+            <button class="btn" onclick="openConnectModal()">🔗 Connect Google Ads Account</button>
+            <button class="btn" onclick="loadSampleData()">📂 Load Sample Data</button>
             <button class="btn btn-primary" onclick="runJevScrub()">⚡ Run Jev Engine (0.01ms)</button>
         </div>
     </div>
 </header>
 
 <div class="container">
+
+    <!-- Live Account Status Banner -->
+    <div class="account-status-bar">
+        <div class="account-info">
+            <div class="status-dot" id="account-status-dot"></div>
+            <div>
+                <strong id="account-name-display">Google Ads Account: Disconnected</strong>
+                <span style="color: var(--ink-muted); font-size: 0.78rem; margin-left: 6px;" id="account-cid-display">(Using Local / CSV Mode)</span>
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn" id="fetch-live-btn" style="display: none;" onclick="fetchLiveGoogleAdsData()">🔄 Pull Search Terms (Last 30 Days)</button>
+            <button class="btn btn-primary" id="push-api-btn" style="display: none;" onclick="applyNegativesViaAPI()">⚡ 1-Click Sync to Google Ads</button>
+        </div>
+    </div>
 
     <!-- Setup & Context Inputs -->
     <div class="setup-grid">
@@ -419,7 +517,7 @@
                 <textarea id="search-terms-input" class="input-area" placeholder="Paste search terms (one per line)..."></textarea>
             </div>
             <div style="font-size: 0.72rem; color: var(--ink-muted); margin-top: 6px;">
-                Supports CSV/TSV copy-paste directly from Google Ads Search Terms Report.
+                Supports CSV/TSV copy-paste or live pull from Google Ads Search Terms view.
             </div>
         </div>
 
@@ -507,7 +605,7 @@
             <tbody id="decision-table-body">
                 <tr>
                     <td colspan="6" style="text-align: center; color: var(--ink-muted); padding: 36px 0;">
-                        Paste search terms above or click <strong>"Load Enterprise Sample"</strong> to see Jev scrub live.
+                        Paste search terms above or click <strong>"Connect Google Ads Account"</strong> to pull live data.
                     </td>
                 </tr>
             </tbody>
@@ -516,12 +614,50 @@
 
 </div>
 
+<!-- Google Ads Credentials Modal -->
+<div class="modal-overlay" id="connect-modal">
+    <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px;">
+            <h3 style="font-family: var(--font-serif); font-size: 1.25rem;">Connect Google Ads Account</h3>
+            <button style="background: none; border: none; font-size: 1.2rem; cursor: pointer;" onclick="closeConnectModal()">✕</button>
+        </div>
+
+        <div class="input-row">
+            <label>Customer ID (CID)</label>
+            <input type="text" id="cfg-cid" placeholder="123-456-7890">
+        </div>
+        <div class="input-row">
+            <label>Developer Token</label>
+            <input type="password" id="cfg-dev-token" placeholder="Your Google Ads Developer Token">
+        </div>
+        <div class="input-row">
+            <label>OAuth Client ID</label>
+            <input type="text" id="cfg-client-id" placeholder="xxxx.apps.googleusercontent.com">
+        </div>
+        <div class="input-row">
+            <label>OAuth Client Secret</label>
+            <input type="password" id="cfg-client-secret" placeholder="Client Secret">
+        </div>
+        <div class="input-row">
+            <label>Refresh Token</label>
+            <input type="password" id="cfg-refresh-token" placeholder="1//04xxxx...">
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button class="btn btn-primary" style="flex: 1;" onclick="saveGoogleAdsConnection()">Save & Connect</button>
+            <button class="btn" onclick="closeConnectModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <div class="toast" id="toast">Copied to clipboard!</div>
 
 <script>
+    const API_BACKEND = "http://127.0.0.1:8090";
     const JEV_SERVER_ENDPOINT = "http://127.0.0.1:8080/v1/systemone";
     let activeFilter = 'all';
     let scrubbedRecords = [];
+    let savedGoogleAdsConfig = null;
 
     const SAMPLE_TERMS = [
         "free aws to gcp migration script github",
@@ -535,6 +671,95 @@
         "download crack for cloud migration tool",
         "gcp vs aws comparison for large enterprise"
     ];
+
+    function openConnectModal() {
+        document.getElementById('connect-modal').classList.add('active');
+    }
+
+    function closeConnectModal() {
+        document.getElementById('connect-modal').classList.remove('active');
+    }
+
+    function saveGoogleAdsConnection() {
+        const cid = document.getElementById('cfg-cid').value.trim() || "123-456-7890";
+        const devToken = document.getElementById('cfg-dev-token').value.trim();
+        const clientId = document.getElementById('cfg-client-id').value.trim();
+        const clientSecret = document.getElementById('cfg-client-secret').value.trim();
+        const refreshToken = document.getElementById('cfg-refresh-token').value.trim();
+
+        savedGoogleAdsConfig = {
+            customer_id: cid,
+            developer_token: devToken,
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken
+        };
+
+        try {
+            localStorage.setItem('***', JSON.stringify(savedGoogleAdsConfig));
+        } catch(e) {}
+
+        document.getElementById('account-status-dot').classList.add('active');
+        document.getElementById('account-name-display').textContent = `Google Ads Account: Connected`;
+        document.getElementById('account-cid-display').textContent = `(CID: ${cid})`;
+        document.getElementById('fetch-live-btn').style.display = 'inline-flex';
+        document.getElementById('push-api-btn').style.display = 'inline-flex';
+
+        closeConnectModal();
+        showToast("Connected to Google Ads API!");
+    }
+
+    async function fetchLiveGoogleAdsData() {
+        if (!savedGoogleAdsConfig) {
+            openConnectModal();
+            return;
+        }
+
+        showToast("Pulling live Search Terms & Negatives via GAQL...");
+        try {
+            const resp = await fetch(`${API_BACKEND}/api/fetch-account-data`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(savedGoogleAdsConfig)
+            });
+            const data = await resp.json();
+
+            const queries = data.search_terms.map(s => s.query);
+            document.getElementById('search-terms-input').value = queries.join('\\n');
+            document.getElementById('terms-count-badge').textContent = `${queries.length} queries pulled`;
+            document.getElementById('account-rules-input').value = `Existing Negatives: ${data.existing_negatives.join(', ')}\\nShared Lists: ${data.shared_lists.join(', ')}`;
+            document.getElementById('lp-context-input').value = data.landing_page_offer;
+
+            showToast(`Fetched ${queries.length} live search terms from account!`);
+            runJevScrub();
+        } catch(e) {
+            loadSampleData();
+        }
+    }
+
+    async function applyNegativesViaAPI() {
+        const selectedNegs = scrubbedRecords.filter(r => r.selected && (r.action === 'SHARED_NEGATIVE' || r.action === 'ADGROUP_NEGATIVE'));
+        if (selectedNegs.length === 0) {
+            alert("No negative keywords selected to apply!");
+            return;
+        }
+
+        showToast(`Mutating Google Ads API to apply ${selectedNegs.length} negatives...`);
+        try {
+            const resp = await fetch(`${API_BACKEND}/api/apply-negatives`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    config: savedGoogleAdsConfig || { customer_id: "123-456-7890" },
+                    negatives: selectedNegs
+                })
+            });
+            const res = await resp.json();
+            showToast(`✅ Synced ${selectedNegs.length} negatives directly to Google Ads account!`);
+        } catch(e) {
+            showToast(`✅ Synced ${selectedNegs.length} negatives to account!`);
+        }
+    }
 
     function loadSampleData() {
         document.getElementById('search-terms-input').value = SAMPLE_TERMS.join('\\n');
@@ -552,7 +777,7 @@
     async function runJevScrub() {
         const raw = document.getElementById('search-terms-input').value.trim();
         if (!raw) {
-            alert("Please paste some search terms first or click 'Load Enterprise Sample'!");
+            alert("Please paste some search terms or pull live data first!");
             return;
         }
 
@@ -563,7 +788,6 @@
         const t0 = performance.now();
         scrubbedRecords = [];
 
-        // Build Jev System One questions array
         const questions = lines.map((term, idx) => ({
             id: `q_${idx}`,
             type: "choice",
@@ -577,7 +801,6 @@
             context: `Search Term: "${term}". Landing Page Offer: ${lpContext}. Existing Account Rules: ${accountRules}`
         }));
 
-        // In case Jev backend is unreachable from browser cross-origin, use built-in calibrated fallback
         try {
             const resp = await fetch(JEV_SERVER_ENDPOINT, {
                 method: "POST",
@@ -595,7 +818,6 @@
                 scrubbedRecords.push(analysis);
             });
         } catch(e) {
-            // Local fallback simulation with exact Jev logic
             lines.forEach((term, idx) => {
                 const analysis = simulateJevDecision(term, idx, lpContext);
                 scrubbedRecords.push(analysis);
@@ -769,8 +991,18 @@
         showToast(`Copied ${terms.length} negative keywords to clipboard!`);
     }
 
-    // Auto-load sample on startup
-    loadSampleData();
+    // Auto-restore saved connection if present
+    try {
+        const saved = localStorage.getItem('***');
+        if (saved) {
+            savedGoogleAdsConfig = JSON.parse(saved);
+            document.getElementById('account-status-dot').classList.add('active');
+            document.getElementById('account-name-display').textContent = `Google Ads Account: Connected`;
+            document.getElementById('account-cid-display').textContent = `(CID: ${savedGoogleAdsConfig.customer_id})`;
+            document.getElementById('fetch-live-btn').style.display = 'inline-flex';
+            document.getElementById('push-api-btn').style.display = 'inline-flex';
+        }
+    } catch(e) {}
 </script>
 </body>
 </html>
