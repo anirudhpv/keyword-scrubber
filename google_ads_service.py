@@ -4,24 +4,45 @@ from typing import Dict, Any, List, Optional
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 
-def get_client_from_dict(credentials: Dict[str, str]) -> GoogleAdsClient:
-    config_dict = {
-        "developer_token": credentials.get("developer_token", "").strip(),
-        "client_id": credentials.get("client_id", "").strip(),
-        "client_secret": credentials.get("client_secret", "").strip(),
-        "refresh_token": credentials.get("refresh_token", "").strip(),
-        "use_proto_plus": True
-    }
-    login_cid = credentials.get("login_customer_id", "").replace("-", "").strip()
-    if login_cid:
-        config_dict["login_customer_id"] = login_cid
-    return GoogleAdsClient.load_from_dict(config_dict, version="v18")
+# Search paths for google-ads.yaml
+DEFAULT_YAML_PATHS = [
+    os.path.expanduser("~/.config/google-ads.yaml"),
+    os.path.expanduser("~/google-ads.yaml"),
+    "/home/apv/projects/jev-ads-scrubber/google-ads.yaml"
+]
 
-def list_accounts(client: GoogleAdsClient, login_cid: Optional[str] = None) -> List[Dict[str, Any]]:
+def load_client() -> GoogleAdsClient:
+    # 1. Try yaml file first
+    for path in DEFAULT_YAML_PATHS:
+        if os.path.exists(path):
+            return GoogleAdsClient.load_from_storage(path, version="v25")
+    
+    # 2. Try environment variables
+    dev_token = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN")
+    client_id = os.getenv("GOOGLE_ADS_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_ADS_CLIENT_SECRET")
+    refresh_token = os.getenv("GOOGLE_ADS_REFRESH_TOKEN")
+    login_cid = os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID", "").replace("-", "").strip()
+    
+    if dev_token and client_id and refresh_token:
+        config_dict = {
+            "developer_token": dev_token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "use_proto_plus": True
+        }
+        if login_cid:
+            config_dict["login_customer_id"] = login_cid
+        return GoogleAdsClient.load_from_dict(config_dict, version="v25")
+        
+    raise FileNotFoundError("No Google Ads credentials found. Please populate ~/.config/google-ads.yaml")
+
+def list_accounts(login_cid: Optional[str] = None) -> List[Dict[str, Any]]:
+    client = load_client()
     accounts = []
     ga_service = client.get_service("GoogleAdsService")
     
-    # If login_cid provided (MCC), query customer_client
     cid = (login_cid or client.login_customer_id or "").replace("-", "").strip()
     if cid:
         query = """
@@ -53,7 +74,6 @@ def list_accounts(client: GoogleAdsClient, login_cid: Optional[str] = None) -> L
         except Exception as e:
             print("Error querying customer_client:", e)
 
-    # Fallback: list accessible customers
     customer_service = client.get_service("CustomerService")
     try:
         accessible = customer_service.list_accessible_customers()
@@ -70,7 +90,8 @@ def list_accounts(client: GoogleAdsClient, login_cid: Optional[str] = None) -> L
         print("Error listing accessible customers:", e)
     return accounts
 
-def fetch_keyword_study(client: GoogleAdsClient, customer_id: str, days: int = 30) -> Dict[str, Any]:
+def fetch_keyword_study(customer_id: str, days: int = 30) -> Dict[str, Any]:
+    client = load_client()
     cid = customer_id.replace("-", "").strip()
     ga_service = client.get_service("GoogleAdsService")
     
@@ -136,7 +157,7 @@ def fetch_keyword_study(client: GoogleAdsClient, customer_id: str, days: int = 3
     except Exception as e:
         print("Error fetching targeted keywords:", e)
 
-    # 3. Existing Negative Keywords (Ad Group & Campaign level)
+    # 3. Existing Negative Keywords
     local_negatives = []
     neg_query = """
         SELECT
@@ -163,7 +184,7 @@ def fetch_keyword_study(client: GoogleAdsClient, customer_id: str, days: int = 3
     except Exception as e:
         print("Error fetching local negatives:", e)
 
-    # 4. Shared Negative Keyword Lists
+    # 4. Shared Negative Lists
     shared_lists = []
     shared_query = """
         SELECT

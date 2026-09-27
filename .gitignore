@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+google-ads.yaml
+*.yaml
+*.json
+!package.json
+!tsconfig.json
+dist/
