@@ -4,7 +4,6 @@ from typing import Dict, Any, List, Optional
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 
-# Search paths for google-ads.yaml
 DEFAULT_YAML_PATHS = [
     os.path.expanduser("~/.config/google-ads.yaml"),
     os.path.expanduser("~/google-ads.yaml"),
@@ -17,16 +16,16 @@ def load_client() -> GoogleAdsClient:
         if os.path.exists(path):
             return GoogleAdsClient.load_from_storage(path, version="v25")
     
-    # 2. Try environment variables
-    dev_token = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN")
-    client_id = os.getenv("GOOGLE_ADS_CLIENT_ID")
-    client_secret = os.getenv("GOOGLE_ADS_CLIENT_SECRET")
-    refresh_token = os.getenv("GOOGLE_ADS_REFRESH_TOKEN")
+    # 2. Try environment variables (Developer token is now deprecated/optional in v25+)
+    dev_token = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN", "DEVELOPER_TOKEN_DEPRECATED").strip()
+    client_id = os.getenv("GOOGLE_ADS_CLIENT_ID", "").strip()
+    client_secret = ***"GOOGLE_ADS_CLIENT_SECRET", "").strip()
+    refresh_token = ***"GOOGLE_ADS_REFRESH_TOKEN", "").strip()
     login_cid = os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID", "").replace("-", "").strip()
     
-    if dev_token and client_id and refresh_token:
-        config_dict = {
-            "developer_token": dev_token,
+    if client_id and refresh_token:
+        *** = {
+            "developer_token": dev_token or "DEVELOPER_TOKEN_DEPRECATED",
             "client_id": client_id,
             "client_secret": client_secret,
             "refresh_token": refresh_token,
@@ -36,7 +35,7 @@ def load_client() -> GoogleAdsClient:
             config_dict["login_customer_id"] = login_cid
         return GoogleAdsClient.load_from_dict(config_dict, version="v25")
         
-    raise FileNotFoundError("No Google Ads credentials found. Please populate ~/.config/google-ads.yaml")
+    raise FileNotFoundError("Missing Google Ads OAuth credentials (GOOGLE_ADS_CLIENT_ID, REFRESH_TOKEN).")
 
 def list_accounts(login_cid: Optional[str] = None) -> List[Dict[str, Any]]:
     client = load_client()
