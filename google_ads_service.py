@@ -16,15 +16,15 @@ def load_client() -> GoogleAdsClient:
         if os.path.exists(path):
             return GoogleAdsClient.load_from_storage(path, version="v25")
     
-    # 2. Try environment variables (Developer token is now deprecated/optional in v25+)
+    # 2. Try environment variables
     dev_token = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN", "DEVELOPER_TOKEN_DEPRECATED").strip()
     client_id = os.getenv("GOOGLE_ADS_CLIENT_ID", "").strip()
-    client_secret = ***"GOOGLE_ADS_CLIENT_SECRET", "").strip()
-    refresh_token = ***"GOOGLE_ADS_REFRESH_TOKEN", "").strip()
+    client_secret = os.getenv("GOOGLE_ADS_CLIENT_SECRET", "").strip()
+    refresh_token = os.getenv("GOOGLE_ADS_REFRESH_TOKEN", "").strip()
     login_cid = os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID", "").replace("-", "").strip()
     
     if client_id and refresh_token:
-        *** = {
+        config_dict = {
             "developer_token": dev_token or "DEVELOPER_TOKEN_DEPRECATED",
             "client_id": client_id,
             "client_secret": client_secret,
