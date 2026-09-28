@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import sys
+import json
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-# Google Ads Scope
 SCOPES = ["https://www.googleapis.com/auth/adwords"]
 
 def main():
@@ -20,37 +20,32 @@ def main():
             "client_secret": client_secret,
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": ["http://localhost:8085/", "http://127.0.0.1:8085/"]
         }
     }
 
     flow = InstalledAppFlow.from_client_config(
         client_config,
-        scopes=SCOPES,
-        redirect_uri="urn:ietf:wg:oauth:2.0:oob"
+        scopes=SCOPES
     )
 
-    auth_url, _ = flow.authorization_url(prompt="consent", access_type="offline")
+    try:
+        # 1. Try local server flow on port 8085
+        credentials = flow.run_local_server(
+            port=8085,
+            prompt="consent",
+            access_type="offline",
+            open_browser=False
+        )
+    except Exception as e:
+        print("Local server notice:", e)
+        credentials = flow.run_console()
 
     print("\n" + "="*70)
-    print("📍 STEP 1: Open this URL in your browser and sign in with the")
-    print("   Google Account that manages your Google Ads:")
-    print("="*70 + "\n")
-    print(auth_url)
-    print("\n" + "="*70)
-    print("📍 STEP 2: After approving, Google will give you an Authorization Code.")
-    print("="*70 + "\n")
-
-    code = input("Paste the Authorization Code here: ").strip()
-
-    flow.fetch_token(code=code)
-    credentials = flow.credentials
-
-    print("\n" + "🎉"*20)
-    print("✅ SUCCESS! Your Refresh Token is:")
+    print("✅ REFRESH TOKEN GENERATED SUCCESSFULLY:")
     print("="*70)
     print(credentials.refresh_token)
-    print("="*70)
-    print("\nAdd this token to your GitHub Secrets as: GOOGLE_ADS_REFRESH_TOKEN\n")
+    print("="*70 + "\n")
 
 if __name__ == "__main__":
     main()
