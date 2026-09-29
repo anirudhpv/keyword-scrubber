@@ -11,12 +11,10 @@ DEFAULT_YAML_PATHS = [
 ]
 
 def load_client() -> GoogleAdsClient:
-    # 1. Try yaml file first
     for path in DEFAULT_YAML_PATHS:
         if os.path.exists(path):
             return GoogleAdsClient.load_from_storage(path, version="v25")
     
-    # 2. Try environment variables
     dev_token = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN", "DEVELOPER_TOKEN_DEPRECATED").strip()
     client_id = os.getenv("GOOGLE_ADS_CLIENT_ID", "").strip()
     client_secret = os.getenv("GOOGLE_ADS_CLIENT_SECRET", "").strip()
@@ -37,64 +35,172 @@ def load_client() -> GoogleAdsClient:
         
     raise FileNotFoundError("Missing Google Ads OAuth credentials (GOOGLE_ADS_CLIENT_ID, REFRESH_TOKEN).")
 
-def list_accounts(login_cid: Optional[str] = None) -> List[Dict[str, Any]]:
-    client = load_client()
-    accounts = []
-    ga_service = client.get_service("GoogleAdsService")
-    
-    cid = (login_cid or client.login_customer_id or "").replace("-", "").strip()
-    if cid:
-        query = """
-            SELECT
-                customer_client.client_customer,
-                customer_client.id,
-                customer_client.descriptive_name,
-                customer_client.currency_code,
-                customer_client.time_zone,
-                customer_client.manager,
-                customer_client.status
-            FROM customer_client
-            WHERE customer_client.status = 'ENABLED'
-        """
-        try:
-            stream = ga_service.search_stream(customer_id=cid, query=query)
-            for batch in stream:
-                for row in batch.results:
-                    cc = row.customer_client
-                    accounts.append({
-                        "id": str(cc.id),
-                        "name": cc.descriptive_name or f"Account {cc.id}",
-                        "currency": cc.currency_code,
-                        "time_zone": cc.time_zone,
-                        "is_manager": bool(cc.manager)
-                    })
-            if accounts:
-                return accounts
-        except Exception as e:
-            print("Error querying customer_client:", e)
-
-    customer_service = client.get_service("CustomerService")
-    try:
-        accessible = customer_service.list_accessible_customers()
-        for resource_name in accessible.resource_names:
-            c_id = resource_name.split("/")[-1]
-            accounts.append({
-                "id": c_id,
-                "name": f"Customer {c_id}",
-                "currency": "USD",
-                "time_zone": "UTC",
-                "is_manager": False
-            })
-    except Exception as e:
-        print("Error listing accessible customers:", e)
-    return accounts
-
-def fetch_keyword_study(customer_id: str, days: int = 30) -> Dict[str, Any]:
+def fetch_account_blueprint(customer_id: str, days: int = 30) -> Dict[str, Any]:
     client = load_client()
     cid = customer_id.replace("-", "").strip()
     ga_service = client.get_service("GoogleAdsService")
     
-    # 1. Search Terms
+    # 1. Campaigns Structure
+    campaigns = []
+    camp_query = """
+        SELECT
+            campaign.id,
+            campaign.name,
+            campaign.status,
+            campaign.advertising_channel_type,
+            campaign_budget.amount_micros
+        FROM campaign
+        WHERE campaign.status != 'REMOVED'
+        ORDER BY campaign.name
+    """
+    try:
+        stream = ga_service.search_stream(customer_id=cid, query=camp_query)
+        for batch in stream:
+            for row in batch.results:
+                campaigns.append({
+                    "id": str(row.campaign.id),
+                    "name": row.campaign.name,
+                    "status": str(row.campaign.status.name),
+                    "type": str(row.campaign.advertising_channel_type.name),
+                    "budget_daily": round((row.campaign_budget.amount_micros or 0) / 1_000_000, 2)
+                })
+    except Exception as e:
+        print("Error fetching campaigns:", e)
+
+    # 2. Ad Groups Structure
+    ad_groups = []
+    ag_query = """
+        SELECT
+            ad_group.id,
+            ad_group.name,
+            ad_group.status,
+            campaign.id,
+            campaign.name
+        FROM ad_group
+        WHERE ad_group.status != 'REMOVED'
+        ORDER BY campaign.name, ad_group.name
+    """
+    try:
+        stream = ga_service.search_stream(customer_id=cid, query=ag_query)
+        for batch in stream:
+            for row in batch.results:
+                ad_groups.append({
+                    "id": str(row.ad_group.id),
+                    "name": row.ad_group.name,
+                    "status": str(row.ad_group.status.name),
+                    "campaign_id": str(row.campaign.id),
+                    "campaign_name": row.campaign.name
+                })
+    except Exception as e:
+        print("Error fetching ad groups:", e)
+
+    # 3. Shared Negative Lists (Shared Sets)
+    shared_lists = []
+    shared_query = """
+        SELECT
+            shared_set.id,
+            shared_set.name,
+            shared_set.type,
+            shared_set.member_count
+        FROM shared_set
+        WHERE shared_set.type = 'NEGATIVE_KEYWORDS'
+          AND shared_set.status != 'REMOVED'
+    """
+    try:
+        stream = ga_service.search_stream(customer_id=cid, query=shared_query)
+        for batch in stream:
+            for row in batch.results:
+                shared_lists.append({
+                    "id": str(row.shared_set.id),
+                    "name": row.shared_set.name,
+                    "member_count": row.shared_set.member_count or 0,
+                    "applied_campaigns": []
+                })
+    except Exception as e:
+        print("Error fetching shared sets:", e)
+
+    # 4. Campaign Shared Sets (Which campaign uses which Shared Negative List)
+    list_map = {sl["id"]: sl for sl in shared_lists}
+    css_query = """
+        SELECT
+            campaign.id,
+            campaign.name,
+            shared_set.id,
+            shared_set.name,
+            campaign_shared_set.status
+        FROM campaign_shared_set
+        WHERE campaign_shared_set.status = 'ENABLED'
+    """
+    try:
+        stream = ga_service.search_stream(customer_id=cid, query=css_query)
+        for batch in stream:
+            for row in batch.results:
+                s_id = str(row.shared_set.id)
+                if s_id in list_map:
+                    list_map[s_id]["applied_campaigns"].append({
+                        "campaign_id": str(row.campaign.id),
+                        "campaign_name": row.campaign.name
+                    })
+    except Exception as e:
+        print("Error fetching campaign shared sets:", e)
+
+    # 5. Campaign-Level Negatives
+    campaign_negatives = []
+    camp_neg_query = """
+        SELECT
+            campaign.id,
+            campaign.name,
+            campaign_criterion.keyword.text,
+            campaign_criterion.keyword.match_type
+        FROM campaign_criterion
+        WHERE campaign_criterion.type = 'KEYWORD'
+          AND campaign_criterion.negative = TRUE
+          AND campaign_criterion.status != 'REMOVED'
+        LIMIT 500
+    """
+    try:
+        stream = ga_service.search_stream(customer_id=cid, query=camp_neg_query)
+        for batch in stream:
+            for row in batch.results:
+                campaign_negatives.append({
+                    "campaign_id": str(row.campaign.id),
+                    "campaign_name": row.campaign.name,
+                    "keyword": row.campaign_criterion.keyword.text,
+                    "match_type": str(row.campaign_criterion.keyword.match_type.name)
+                })
+    except Exception as e:
+        print("Error fetching campaign negatives:", e)
+
+    # 6. Ad Group-Level Negatives (Sculpting)
+    adgroup_negatives = []
+    ag_neg_query = """
+        SELECT
+            campaign.name,
+            ad_group.id,
+            ad_group.name,
+            ad_group_criterion.keyword.text,
+            ad_group_criterion.keyword.match_type
+        FROM ad_group_criterion
+        WHERE ad_group_criterion.type = 'KEYWORD'
+          AND ad_group_criterion.negative = TRUE
+          AND ad_group_criterion.status != 'REMOVED'
+        LIMIT 500
+    """
+    try:
+        stream = ga_service.search_stream(customer_id=cid, query=ag_neg_query)
+        for batch in stream:
+            for row in batch.results:
+                adgroup_negatives.append({
+                    "campaign_name": row.campaign.name,
+                    "ad_group_id": str(row.ad_group.id),
+                    "ad_group_name": row.ad_group.name,
+                    "keyword": row.ad_group_criterion.keyword.text,
+                    "match_type": str(row.ad_group_criterion.keyword.match_type.name)
+                })
+    except Exception as e:
+        print("Error fetching ad group negatives:", e)
+
+    # 7. Search Terms Report (Last N Days)
     search_terms = []
     st_query = f"""
         SELECT
@@ -128,120 +234,12 @@ def fetch_keyword_study(customer_id: str, days: int = 30) -> Dict[str, Any]:
     except Exception as e:
         print("Error fetching search terms:", e)
 
-    # 2. Targeted Positive Keywords
-    targeted_keywords = []
-    kw_query = """
-        SELECT
-            campaign.name,
-            ad_group.name,
-            ad_group_criterion.keyword.text,
-            ad_group_criterion.keyword.match_type,
-            ad_group_criterion.status
-        FROM ad_group_criterion
-        WHERE ad_group_criterion.type = 'KEYWORD'
-          AND ad_group_criterion.negative = FALSE
-          AND ad_group_criterion.status = 'ENABLED'
-        LIMIT 500
-    """
-    try:
-        stream = ga_service.search_stream(customer_id=cid, query=kw_query)
-        for batch in stream:
-            for row in batch.results:
-                targeted_keywords.append({
-                    "keyword": row.ad_group_criterion.keyword.text,
-                    "match_type": str(row.ad_group_criterion.keyword.match_type.name),
-                    "campaign": row.campaign.name,
-                    "ad_group": row.ad_group.name
-                })
-    except Exception as e:
-        print("Error fetching targeted keywords:", e)
-
-    # 3. Existing Negative Keywords
-    local_negatives = []
-    neg_query = """
-        SELECT
-            campaign.name,
-            ad_group.name,
-            ad_group_criterion.keyword.text,
-            ad_group_criterion.keyword.match_type
-        FROM ad_group_criterion
-        WHERE ad_group_criterion.type = 'KEYWORD'
-          AND ad_group_criterion.negative = TRUE
-        LIMIT 300
-    """
-    try:
-        stream = ga_service.search_stream(customer_id=cid, query=neg_query)
-        for batch in stream:
-            for row in batch.results:
-                local_negatives.append({
-                    "keyword": row.ad_group_criterion.keyword.text,
-                    "match_type": str(row.ad_group_criterion.keyword.match_type.name),
-                    "level": "Ad Group",
-                    "campaign": row.campaign.name,
-                    "ad_group": row.ad_group.name
-                })
-    except Exception as e:
-        print("Error fetching local negatives:", e)
-
-    # 4. Shared Negative Lists
-    shared_lists = []
-    shared_query = """
-        SELECT
-            shared_set.id,
-            shared_set.name,
-            shared_set.type,
-            shared_set.member_count
-        FROM shared_set
-        WHERE shared_set.type = 'NEGATIVE_KEYWORDS'
-    """
-    try:
-        stream = ga_service.search_stream(customer_id=cid, query=shared_query)
-        for batch in stream:
-            for row in batch.results:
-                shared_lists.append({
-                    "id": str(row.shared_set.id),
-                    "name": row.shared_set.name,
-                    "member_count": row.shared_set.member_count
-                })
-    except Exception as e:
-        print("Error fetching shared sets:", e)
-
-    # 5. Landing Pages & RSAs
-    landing_pages = []
-    ad_query = """
-        SELECT
-            campaign.name,
-            ad_group.name,
-            ad_group_ad.ad.final_urls,
-            ad_group_ad.ad.responsive_search_ad.headlines,
-            ad_group_ad.ad.responsive_search_ad.descriptions
-        FROM ad_group_ad
-        WHERE ad_group_ad.status = 'ENABLED'
-        LIMIT 50
-    """
-    try:
-        stream = ga_service.search_stream(customer_id=cid, query=ad_query)
-        for batch in stream:
-            for row in batch.results:
-                ad = row.ad_group_ad.ad
-                urls = list(ad.final_urls) if ad.final_urls else []
-                headlines = [h.text for h in ad.responsive_search_ad.headlines] if ad.responsive_search_ad else []
-                descriptions = [d.text for d in ad.responsive_search_ad.descriptions] if ad.responsive_search_ad else []
-                landing_pages.append({
-                    "campaign": row.campaign.name,
-                    "ad_group": row.ad_group.name,
-                    "final_urls": urls,
-                    "headlines": headlines[:4],
-                    "descriptions": descriptions[:2]
-                })
-    except Exception as e:
-        print("Error fetching ads/LPs:", e)
-
     return {
         "customer_id": customer_id,
-        "search_terms": search_terms,
-        "targeted_keywords": targeted_keywords,
-        "local_negatives": local_negatives,
+        "campaigns": campaigns,
+        "ad_groups": ad_groups,
         "shared_lists": shared_lists,
-        "landing_pages": landing_pages
+        "campaign_negatives": campaign_negatives,
+        "adgroup_negatives": adgroup_negatives,
+        "search_terms": search_terms
     }
