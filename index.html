@@ -59,11 +59,10 @@
             padding-bottom: 90px;
         }
 
-        /* Top Bar */
         header.top-bar {
             background: var(--bg-surface);
             border-bottom: 1px solid var(--border-subtle);
-            padding: 16px 24px;
+            padding: 14px 24px;
             position: sticky;
             top: 0;
             z-index: 100;
@@ -116,7 +115,20 @@
             padding: 0 24px;
         }
 
-        /* 3 Sequential Step Navigation */
+        .auth-bar {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+
         .step-nav {
             display: flex;
             gap: 8px;
@@ -162,7 +174,6 @@
             color: #ffffff;
         }
 
-        /* Cards & Surfaces */
         .panel-card {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
@@ -187,7 +198,6 @@
             font-weight: 700;
         }
 
-        /* Buttons */
         .btn {
             background: var(--bg-surface);
             border: 1px solid var(--border-strong);
@@ -218,7 +228,21 @@
             color: #ffffff;
         }
 
-        /* Hierarchy & Coverage Tables */
+        .btn-google {
+            background: #ffffff;
+            border: 1px solid #d5cebf;
+            color: #1f2937;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-google:hover {
+            border-color: #4285f4;
+            color: #4285f4;
+            background: #f8fafc;
+        }
+
         .table-wrap {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
@@ -294,14 +318,36 @@
                 <p>Account Blueprint & Negative Keyword Coverage Architecture</p>
             </div>
         </div>
-        <div style="display: flex; gap: 8px;">
-            <button class="btn" onclick="document.getElementById('file-upload').click()">📂 Load Account Blueprint JSON</button>
+        <div style="display: flex; gap: 10px; align-items: center;" id="auth-header-container">
+            <a href="/api/auth/login" class="btn btn-google" id="login-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+                <span>Sign in with Google</span>
+            </a>
+            <div id="user-profile-badge" style="display: none; align-items: center; gap: 8px;">
+                <span id="user-email-text" style="font-weight: 700; font-size: 0.82rem; color: var(--ink-secondary);"></span>
+                <button class="btn" style="padding: 4px 8px; font-size: 0.72rem;" onclick="logout()">Sign Out</button>
+            </div>
+            <button class="btn" onclick="document.getElementById('file-upload').click()">📂 Load Blueprint JSON</button>
             <input type="file" id="file-upload" style="display: none;" accept=".json" onchange="handleFileUpload(event)">
         </div>
     </div>
 </header>
 
 <div class="container">
+
+    <!-- Active Account Bar -->
+    <div class="auth-bar" id="account-select-bar">
+        <div>
+            <strong id="session-title">🔒 Private Account Session</strong>
+            <p style="color: var(--ink-muted); font-size: 0.78rem;" id="session-subtitle">
+                Sign in with your Google account above to pull your accessible Google Ads accounts, or upload a JSON export.
+            </p>
+        </div>
+        <div id="account-dropdown-wrap" style="display: none; align-items: center; gap: 10px;">
+            <select id="user-account-select" class="input-text" style="min-width: 240px; font-weight: 600;"></select>
+            <button class="btn btn-primary" onclick="loadSelectedAccountData()">📊 Study Account</button>
+        </div>
+    </div>
 
     <!-- 3-Step Navigation Flow -->
     <div class="step-nav">
@@ -344,7 +390,7 @@
                         </tr>
                     </thead>
                     <tbody id="campaigns-tbody">
-                        <tr><td colspan="5" style="text-align: center; padding: 24px; color: var(--ink-muted);">Click <strong>"Load Account Blueprint JSON"</strong> to inspect your live account structure.</td></tr>
+                        <tr><td colspan="5" style="text-align: center; padding: 24px; color: var(--ink-muted);">Sign in with Google or load a Blueprint JSON to inspect your account structure.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -464,6 +510,51 @@
 
 <script>
     let blueprintData = null;
+    let authSession = null;
+
+    function checkAuth() {
+        try {
+            const raw = localStorage.getItem('***');
+            if (raw) {
+                authSession = JSON.parse(raw);
+                if (authSession && authSession.access_token && authSession.expires_at > Date.now()) {
+                    document.getElementById('login-btn').style.display = 'none';
+                    document.getElementById('user-profile-badge').style.display = 'flex';
+                    document.getElementById('user-email-text').textContent = authSession.email || 'Google User';
+                    document.getElementById('session-title').textContent = `👤 Connected as ${authSession.email}`;
+                    document.getElementById('session-subtitle').textContent = "Select your Google Ads account below to study its keyword structure.";
+                    fetchUserAccounts();
+                }
+            }
+        } catch(e) {}
+    }
+
+    function logout() {
+        localStorage.removeItem('***');
+        window.location.reload();
+    }
+
+    async function fetchUserAccounts() {
+        if (!authSession) return;
+        try {
+            const resp = await fetch("/api/google-ads/accounts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ access_token: authSession.access_token })
+            });
+            const data = await resp.json();
+            if (data.accounts && data.accounts.length > 0) {
+                const sel = document.getElementById('user-account-select');
+                sel.innerHTML = data.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+                document.getElementById('account-dropdown-wrap').style.display = 'flex';
+            }
+        } catch(e) {}
+    }
+
+    function loadSelectedAccountData() {
+        const cid = document.getElementById('user-account-select').value;
+        showToast(`Loading account data for CID: ${cid}...`);
+    }
 
     function showToast(msg) {
         const t = document.getElementById('toast');
@@ -509,13 +600,11 @@
         const agNegs = blueprintData.adgroup_negatives || [];
         const st = blueprintData.search_terms || [];
 
-        // Count ad groups per campaign
         const agCountMap = {};
         ags.forEach(a => {
             agCountMap[a.campaign_name] = (agCountMap[a.campaign_name] || 0) + 1;
         });
 
-        // 1. Render Campaigns
         document.getElementById('stat-campaign-count').textContent = camps.length;
         const campTbody = document.getElementById('campaigns-tbody');
         campTbody.innerHTML = camps.map(c => `
@@ -528,11 +617,9 @@
             </tr>
         `).join('') || `<tr><td colspan="5">No campaigns found.</td></tr>`;
 
-        // 2. Render Shared Lists with Campaign Coverage
         const sharedTbody = document.getElementById('shared-lists-tbody');
         sharedTbody.innerHTML = shared.map(sl => {
             const applied = sl.applied_campaigns || [];
-            const isFullCoverage = applied.length >= camps.length && camps.length > 0;
             return `
                 <tr>
                     <td style="font-weight: 700; font-size: 0.84rem;">📋 ${sl.name}</td>
@@ -549,7 +636,6 @@
             `;
         }).join('') || `<tr><td colspan="4">No shared lists found.</td></tr>`;
 
-        // 3. Render Campaign Negatives
         const campNegTbody = document.getElementById('camp-negs-tbody');
         campNegTbody.innerHTML = campNegs.map(cn => `
             <tr>
@@ -559,7 +645,6 @@
             </tr>
         `).join('') || `<tr><td colspan="3">No campaign-level negatives found.</td></tr>`;
 
-        // 4. Render Ad Group Negatives
         const agNegTbody = document.getElementById('ag-negs-tbody');
         agNegTbody.innerHTML = agNegs.map(an => `
             <tr>
@@ -570,7 +655,6 @@
             </tr>
         `).join('') || `<tr><td colspan="4">No ad-group negatives found.</td></tr>`;
 
-        // 5. Render Search Terms
         const stTbody = document.getElementById('st-tbody');
         stTbody.innerHTML = st.map(s => `
             <tr>
@@ -587,6 +671,8 @@
             </tr>
         `).join('') || `<tr><td colspan="6">No search terms found.</td></tr>`;
     }
+
+    checkAuth();
 </script>
 </body>
 </html>
