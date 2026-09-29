@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>JevAds — Google Ads Keyword & Intent Scrubber</title>
+    <title>JevAds — Google Ads Account Blueprint & Negative Architecture</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -23,6 +23,8 @@
             --brand-green-light: #e8f3ed;
             --brand-green-border: #b7dfc8;
             --brand-forest: #2d6a4f;
+            --brand-amber: #d97706;
+            --brand-amber-light: #fef3c7;
             
             --action-neg-shared: #991b1b;
             --action-neg-shared-bg: #fef2f2;
@@ -57,6 +59,7 @@
             padding-bottom: 90px;
         }
 
+        /* Top Bar */
         header.top-bar {
             background: var(--bg-surface);
             border-bottom: 1px solid var(--border-subtle);
@@ -113,67 +116,78 @@
             padding: 0 24px;
         }
 
-        .auth-bar {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 16px 20px;
-            margin-bottom: 24px;
+        /* 3 Sequential Step Navigation */
+        .step-nav {
             display: flex;
-            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border-strong);
+            padding-bottom: 4px;
+            overflow-x: auto;
+        }
+        .step-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--ink-muted);
+            padding: 10px 18px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
+            gap: 8px;
+            margin-bottom: -6px;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .step-btn.active {
+            color: var(--brand-green);
+            border-bottom-color: var(--brand-green);
+        }
+        .step-num {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--bg-subtle);
+            color: var(--ink-secondary);
+            font-size: 0.72rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+        }
+        .step-btn.active .step-num {
+            background: var(--brand-green);
+            color: #ffffff;
         }
 
-        .setup-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 1fr 1fr;
-            gap: 18px;
-            margin-bottom: 24px;
-        }
-        .setup-card {
+        /* Cards & Surfaces */
+        .panel-card {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
             border-radius: 8px;
-            padding: 18px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            padding: 24px;
+            margin-bottom: 24px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
         }
-        .card-header {
+        .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
             border-bottom: 1px solid var(--border-subtle);
-            padding-bottom: 8px;
+            padding-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .card-title {
+        .panel-title {
             font-family: var(--font-serif);
-            font-size: 1.05rem;
+            font-size: 1.25rem;
             font-weight: 700;
         }
 
-        textarea.input-area {
-            width: 100%;
-            height: 95px;
-            background: var(--bg-page);
-            border: 1px solid var(--border-strong);
-            border-radius: 6px;
-            padding: 8px 10px;
-            font-size: 0.8rem;
-            font-family: var(--font-mono);
-            color: var(--ink-primary);
-            resize: none;
-            outline: none;
-        }
-        textarea.input-area:focus {
-            border-color: var(--brand-green);
-            background: #ffffff;
-        }
-
+        /* Buttons */
         .btn {
             background: var(--bg-surface);
             border: 1px solid var(--border-strong);
@@ -204,40 +218,14 @@
             color: #ffffff;
         }
 
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 1px;
-            background: var(--border-subtle);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 24px;
-        }
-        .stat-box {
-            background: var(--bg-surface);
-            padding: 14px 16px;
-            display: flex;
-            flex-direction: column;
-        }
-        .stat-val {
-            font-family: var(--font-serif);
-            font-size: 1.7rem;
-            font-weight: 700;
-            line-height: 1.1;
-        }
-        .stat-label {
-            font-size: 0.74rem;
-            font-weight: 700;
-            color: var(--ink-muted);
-            text-transform: uppercase;
-        }
-
+        /* Hierarchy & Coverage Tables */
         .table-wrap {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
             border-radius: 8px;
             overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+            margin-bottom: 20px;
         }
         table.data-table {
             width: 100%;
@@ -253,6 +241,7 @@
             border-bottom: 1px solid var(--border-strong);
             font-size: 0.72rem;
             text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
         table.data-table td {
             padding: 10px 14px;
@@ -263,19 +252,16 @@
             background: #faf8f3;
         }
 
-        .badge-action {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.72rem;
-            font-weight: 700;
+        .pill-tag {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: inline-block;
+            margin: 2px 4px 2px 0;
+            font-weight: 600;
         }
-        .badge-shared-neg { background: var(--action-neg-shared-bg); color: var(--action-neg-shared); border: 1px solid #fecaca; }
-        .badge-ag-neg { background: var(--action-neg-ag-bg); color: var(--action-neg-ag); border: 1px solid #ffedd5; }
-        .badge-promote { background: var(--action-promote-bg); color: var(--action-promote); border: 1px solid #bbf7d0; }
-        .badge-review { background: var(--action-review-bg); color: var(--action-review); border: 1px solid #fef08a; }
+        .pill-applied { background: var(--brand-green-light); color: var(--brand-green); border: 1px solid var(--brand-green-border); }
+        .pill-missing { background: var(--action-neg-shared-bg); color: var(--action-neg-shared); border: 1px solid #fecaca; }
 
         .toast {
             position: fixed;
@@ -305,127 +291,179 @@
             <div class="brand-monogram">J</div>
             <div class="brand-title">
                 <h1>JevAds</h1>
-                <p>Private Google Ads Search Intent & Negative Scrubber</p>
+                <p>Account Blueprint & Negative Keyword Coverage Architecture</p>
             </div>
         </div>
         <div style="display: flex; gap: 8px;">
-            <button class="btn btn-primary" onclick="runJevScrub()">⚡ Run Decision Engine (0.01ms)</button>
+            <button class="btn" onclick="document.getElementById('file-upload').click()">📂 Load Account Blueprint JSON</button>
+            <input type="file" id="file-upload" style="display: none;" accept=".json" onchange="handleFileUpload(event)">
         </div>
     </div>
 </header>
 
 <div class="container">
 
-    <div class="auth-bar">
-        <div>
-            <strong>🔒 Secure Local Session</strong>
-            <p style="color: var(--ink-muted); font-size: 0.78rem;">All query data is processed strictly in local browser memory and never uploaded to public servers.</p>
-        </div>
-        <div style="display: flex; gap: 8px;">
-            <button class="btn" onclick="exportEditorCSV()">📥 Export Google Ads Editor CSV</button>
-            <button class="btn" onclick="copyNegativeList()">📋 Copy Clean Negatives</button>
-        </div>
+    <!-- 3-Step Navigation Flow -->
+    <div class="step-nav">
+        <button class="step-btn active" onclick="switchStep('step-1', this)">
+            <span class="step-num">1</span>
+            <span>Account Blueprint & Hierarchy</span>
+        </button>
+        <button class="step-btn" onclick="switchStep('step-2', this)">
+            <span class="step-num">2</span>
+            <span>Negative Lists & Campaign Coverage</span>
+        </button>
+        <button class="step-btn" onclick="switchStep('step-3', this)">
+            <span class="step-num">3</span>
+            <span>Ad Group Sculpting & Search Terms</span>
+        </button>
     </div>
 
-    <!-- Setup Inputs -->
-    <div class="setup-grid">
-        <div class="setup-card">
-            <div>
-                <div class="card-header">
-                    <span class="card-title">1. Search Terms Input</span>
-                    <span style="font-size: 0.7rem; color: var(--ink-muted);" id="terms-count">0 terms</span>
+    <!-- STEP 1: Account Hierarchy (Campaigns & Ad Groups) -->
+    <div id="step-1" class="step-content">
+        <div class="panel-card">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Active Campaigns & Ad Group Hierarchy</h2>
+                    <p style="color: var(--ink-muted); font-size: 0.82rem;">Overview of all active campaigns, ad groups, and daily budgets.</p>
                 </div>
-                <textarea id="search-terms-input" class="input-area" placeholder="Paste search terms here (one per line)..." oninput="updateCount()"></textarea>
+                <div style="font-family: var(--font-serif); font-size: 1.1rem; color: var(--brand-green); font-weight: 700;">
+                    <span id="stat-campaign-count">0</span> Active Campaigns
+                </div>
             </div>
-            <div style="font-size: 0.72rem; color: var(--ink-muted); margin-top: 6px;">
-                Paste directly from Google Ads Search Terms Report.
-            </div>
-        </div>
 
-        <div class="setup-card">
-            <div>
-                <div class="card-header">
-                    <span class="card-title">2. Landing Page Ground Truth</span>
-                </div>
-                <textarea id="lp-context-input" class="input-area" placeholder="Enter target business offer, ICP, pricing model, and hard disqualifiers..."></textarea>
-            </div>
-            <div style="font-size: 0.72rem; color: var(--ink-muted); margin-top: 6px;">
-                Defines what is commercially relevant vs disqualifying waste.
-            </div>
-        </div>
-
-        <div class="setup-card">
-            <div>
-                <div class="card-header">
-                    <span class="card-title">3. Target Keywords & Rules</span>
-                </div>
-                <textarea id="account-rules-input" class="input-area" placeholder="Enter core targeted keywords and existing negative rules..."></textarea>
-            </div>
-            <div style="font-size: 0.72rem; color: var(--ink-muted); margin-top: 6px;">
-                Injected into Jev for instant calibration.
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Campaign Name</th>
+                            <th>Channel Type</th>
+                            <th>Daily Budget</th>
+                            <th>Ad Groups Count</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="campaigns-tbody">
+                        <tr><td colspan="5" style="text-align: center; padding: 24px; color: var(--ink-muted);">Click <strong>"Load Account Blueprint JSON"</strong> to inspect your live account structure.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- Live Performance Metrics -->
-    <div class="stats-bar">
-        <div class="stat-box">
-            <div class="stat-val" id="stat-total" style="color: var(--ink-primary);">0</div>
-            <div class="stat-label">Total Queries</div>
+    <!-- STEP 2: Negative Lists & Campaign Coverage Map -->
+    <div id="step-2" class="step-content" style="display: none;">
+        <div class="panel-card">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Shared Negative Keyword Lists & Campaign Coverage</h2>
+                    <p style="color: var(--ink-muted); font-size: 0.82rem;">Shows which Shared Negative Lists are applied to which campaigns, and detects coverage gaps.</p>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Shared Negative List</th>
+                            <th>Keywords Count</th>
+                            <th>Applied Campaigns</th>
+                            <th>Coverage Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shared-lists-tbody">
+                        <tr><td colspan="4" style="text-align: center; padding: 24px; color: var(--ink-muted);">No shared lists loaded.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="stat-box">
-            <div class="stat-val" id="stat-shared-neg" style="color: var(--action-neg-shared);">0</div>
-            <div class="stat-label">Shared Negatives (Global)</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-val" id="stat-ag-neg" style="color: var(--action-neg-ag);">0</div>
-            <div class="stat-label">Ad Group Negatives (Sculpt)</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-val" id="stat-promote" style="color: var(--action-promote);">0</div>
-            <div class="stat-label">Promote to Keywords</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-val" id="stat-latency" style="color: var(--brand-green);">0.00ms</div>
-            <div class="stat-label">Avg Jev Latency</div>
+
+        <div class="panel-card">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Campaign-Level Explicit Negatives</h2>
+                    <p style="color: var(--ink-muted); font-size: 0.82rem;">Direct negative keywords applied to whole campaigns.</p>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Campaign Name</th>
+                            <th>Negative Keyword</th>
+                            <th>Match Type</th>
+                        </tr>
+                    </thead>
+                    <tbody id="camp-negs-tbody">
+                        <tr><td colspan="3" style="text-align: center; padding: 24px; color: var(--ink-muted);">No campaign-level negatives loaded.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <!-- Results Table -->
-    <div class="table-wrap">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th style="width: 30px;"><input type="checkbox" checked onclick="toggleAll(this)"></th>
-                    <th>Search Query</th>
-                    <th>Jev Action Verdict</th>
-                    <th>Reason Code</th>
-                    <th>Confidence</th>
-                    <th>Speed</th>
-                </tr>
-            </thead>
-            <tbody id="decision-table-body">
-                <tr>
-                    <td colspan="6" style="text-align: center; padding: 36px 0; color: var(--ink-muted);">
-                        Paste your search terms above and click <strong>"Run Decision Engine"</strong>.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+    <!-- STEP 3: Ad Group Sculpting & Search Terms Scrubber -->
+    <div id="step-3" class="step-content" style="display: none;">
+        <div class="panel-card">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Ad Group Traffic Sculpting Negatives</h2>
+                    <p style="color: var(--ink-muted); font-size: 0.82rem;">Fine-grained negative keywords inside individual ad groups to prevent internal cannibalization.</p>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Campaign</th>
+                            <th>Ad Group</th>
+                            <th>Negative Keyword</th>
+                            <th>Match Type</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ag-negs-tbody">
+                        <tr><td colspan="4" style="text-align: center; padding: 24px; color: var(--ink-muted);">No ad-group negatives loaded.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel-card">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Search Terms Scrubber & Jev Action Routing</h2>
+                    <p style="color: var(--ink-muted); font-size: 0.82rem;">Live queries matched against their exact ad group and routed to the proper negative tier.</p>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Search Query</th>
+                            <th>Campaign</th>
+                            <th>Ad Group</th>
+                            <th>Cost</th>
+                            <th>Conversions</th>
+                            <th>Recommended Jev Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="st-tbody">
+                        <tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--ink-muted);">No search terms loaded.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
 </div>
 
-<div class="toast" id="toast">Copied to clipboard!</div>
+<div class="toast" id="toast">Data loaded!</div>
 
 <script>
-    let scrubbedRecords = [];
-
-    function updateCount() {
-        const raw = document.getElementById('search-terms-input').value.trim();
-        const count = raw ? raw.split('\n').filter(Boolean).length : 0;
-        document.getElementById('terms-count').textContent = `${count} terms`;
-    }
+    let blueprintData = null;
 
     function showToast(msg) {
         const t = document.getElementById('toast');
@@ -434,153 +472,120 @@
         setTimeout(() => t.classList.remove('show'), 2200);
     }
 
-    function runJevScrub() {
-        const raw = document.getElementById('search-terms-input').value.trim();
-        if (!raw) {
-            alert("Please paste search terms to scrub!");
-            return;
-        }
+    function switchStep(stepId, btn) {
+        document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
 
-        const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
-        const lpContext = (document.getElementById('lp-context-input').value || '').toLowerCase();
-        
-        const t0 = performance.now();
-        scrubbedRecords = [];
+        ['step-1', 'step-2', 'step-3'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = id === stepId ? 'block' : 'none';
+        });
+    }
 
-        lines.forEach((term, idx) => {
-            const t = term.toLowerCase();
-            let action = "REVIEW_QUEUE";
-            let reason = "General_Review";
-            let confidence = 88.0;
+    function handleFileUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
 
-            if (t.includes("free") || t.includes("diy") || t.includes("crack") || t.includes("torrent") || t.includes("pdf") || t.includes("tutorial") || t.includes("meaning") || t.includes("what is")) {
-                action = "SHARED_NEGATIVE";
-                reason = t.includes("free") || t.includes("diy") ? "Free_DIY_Seeker" : "Informational_Research";
-                confidence = 98.0;
-            } else if (t.includes("jobs") || t.includes("salary") || t.includes("hiring") || t.includes("career")) {
-                action = "SHARED_NEGATIVE";
-                reason = "Job_Career_Search";
-                confidence = 99.0;
-            } else if (t.includes("cost") || t.includes("pricing") || t.includes("vs") || t.includes("reviews") || t.includes("comparison")) {
-                action = "ADGROUP_NEGATIVE";
-                reason = "Traffic_Sculpting_Intent";
-                confidence = 92.0;
-            } else if (t.includes("near me") || t.includes("clinic") || t.includes("in person")) {
-                action = "ADGROUP_NEGATIVE";
-                reason = "Local_InPerson_Mismatch";
-                confidence = 91.0;
-            } else {
-                action = "PROMOTE_KEYWORD";
-                reason = "Commercial_Intent_Winner";
-                confidence = 95.0;
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                blueprintData = JSON.parse(evt.target.result);
+                renderBlueprint();
+                showToast("Loaded account blueprint successfully!");
+            } catch(err) {
+                alert("Error parsing JSON file: " + err.message);
             }
+        };
+        reader.readAsText(file);
+    }
 
-            scrubbedRecords.push({
-                id: idx,
-                term,
-                action,
-                reason,
-                confidence: confidence.toFixed(1),
-                latency: (Math.random() * 0.03 + 0.01).toFixed(2),
-                selected: true
-            });
+    function renderBlueprint() {
+        if (!blueprintData) return;
+
+        const camps = blueprintData.campaigns || [];
+        const ags = blueprintData.ad_groups || [];
+        const shared = blueprintData.shared_lists || [];
+        const campNegs = blueprintData.campaign_negatives || [];
+        const agNegs = blueprintData.adgroup_negatives || [];
+        const st = blueprintData.search_terms || [];
+
+        // Count ad groups per campaign
+        const agCountMap = {};
+        ags.forEach(a => {
+            agCountMap[a.campaign_name] = (agCountMap[a.campaign_name] || 0) + 1;
         });
 
-        const totalTime = (performance.now() - t0).toFixed(2);
-        updateDashboard();
-        renderTable();
-        showToast(`Scrubbed ${lines.length} queries in ${totalTime}ms!`);
-    }
+        // 1. Render Campaigns
+        document.getElementById('stat-campaign-count').textContent = camps.length;
+        const campTbody = document.getElementById('campaigns-tbody');
+        campTbody.innerHTML = camps.map(c => `
+            <tr>
+                <td style="font-weight: 700; font-family: var(--font-mono); font-size: 0.84rem;">${c.name}</td>
+                <td><span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 3px; background: var(--bg-subtle);">${c.type}</span></td>
+                <td style="font-weight: 700; color: var(--brand-green);">$${(c.budget_daily || 0).toFixed(2)}/day</td>
+                <td><strong>${agCountMap[c.name] || 0}</strong> ad groups</td>
+                <td><span style="font-size: 0.7rem; font-weight: 700; color: ${c.status === 'ENABLED' ? 'var(--brand-green)' : 'var(--ink-muted)'};">${c.status}</span></td>
+            </tr>
+        `).join('') || `<tr><td colspan="5">No campaigns found.</td></tr>`;
 
-    function updateDashboard() {
-        document.getElementById('stat-total').textContent = scrubbedRecords.length;
-        document.getElementById('stat-shared-neg').textContent = scrubbedRecords.filter(r => r.action === 'SHARED_NEGATIVE').length;
-        document.getElementById('stat-ag-neg').textContent = scrubbedRecords.filter(r => r.action === 'ADGROUP_NEGATIVE').length;
-        document.getElementById('stat-promote').textContent = scrubbedRecords.filter(r => r.action === 'PROMOTE_KEYWORD').length;
-        
-        const avgLat = (scrubbedRecords.reduce((sum, r) => sum + parseFloat(r.latency), 0) / (scrubbedRecords.length || 1)).toFixed(2);
-        document.getElementById('stat-latency').textContent = `${avgLat}ms`;
-    }
-
-    function renderTable() {
-        const tbody = document.getElementById('decision-table-body');
-        if (scrubbedRecords.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--ink-muted);">No queries to display.</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = scrubbedRecords.map(r => {
-            let badgeClass = "badge-shared-neg";
-            let badgeLabel = "🌐 Shared Negative";
-            if (r.action === "ADGROUP_NEGATIVE") {
-                badgeClass = "badge-ag-neg";
-                badgeLabel = "🎯 Ad Group Sculpt";
-            } else if (r.action === "PROMOTE_KEYWORD") {
-                badgeClass = "badge-promote";
-                badgeLabel = "🟢 Promote Keyword";
-            } else if (r.action === "REVIEW_QUEUE") {
-                badgeClass = "badge-review";
-                badgeLabel = "🟡 Review Band";
-            }
-
+        // 2. Render Shared Lists with Campaign Coverage
+        const sharedTbody = document.getElementById('shared-lists-tbody');
+        sharedTbody.innerHTML = shared.map(sl => {
+            const applied = sl.applied_campaigns || [];
+            const isFullCoverage = applied.length >= camps.length && camps.length > 0;
             return `
                 <tr>
-                    <td><input type="checkbox" ${r.selected ? 'checked' : ''} onchange="toggleItem(${r.id})"></td>
-                    <td style="font-weight: 700; font-family: var(--font-mono); font-size: 0.84rem;">${r.term}</td>
-                    <td><span class="badge-action ${badgeClass}">${badgeLabel}</span></td>
-                    <td><span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 3px; background: var(--bg-subtle); color: var(--ink-secondary); font-weight: 600;">${r.reason}</span></td>
-                    <td style="font-weight: 700;">${r.confidence}%</td>
-                    <td><span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-muted);">${r.latency}ms</span></td>
+                    <td style="font-weight: 700; font-size: 0.84rem;">📋 ${sl.name}</td>
+                    <td><span style="font-weight: 700; color: var(--action-neg-shared);">${sl.member_count} keywords</span></td>
+                    <td>
+                        ${applied.length > 0 ? applied.map(a => `<span class="pill-tag pill-applied">✓ ${a.campaign_name}</span>`).join('') : '<span class="pill-tag pill-missing">⚠️ Not applied to any campaign</span>'}
+                    </td>
+                    <td>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: ${applied.length > 0 ? 'var(--brand-green)' : 'var(--action-neg-shared)'};">
+                            ${applied.length} / ${camps.length} Campaigns
+                        </span>
+                    </td>
                 </tr>
             `;
-        }).join('');
-    }
+        }).join('') || `<tr><td colspan="4">No shared lists found.</td></tr>`;
 
-    function toggleItem(id) {
-        const item = scrubbedRecords.find(r => r.id === id);
-        if (item) item.selected = !item.selected;
-    }
+        // 3. Render Campaign Negatives
+        const campNegTbody = document.getElementById('camp-negs-tbody');
+        campNegTbody.innerHTML = campNegs.map(cn => `
+            <tr>
+                <td style="font-weight: 700;">${cn.campaign_name}</td>
+                <td style="font-family: var(--font-mono); color: var(--action-neg-shared); font-weight: 700;">${cn.keyword}</td>
+                <td><span style="font-size: 0.7rem; padding: 2px 6px; background: var(--bg-subtle);">${cn.match_type}</span></td>
+            </tr>
+        `).join('') || `<tr><td colspan="3">No campaign-level negatives found.</td></tr>`;
 
-    function toggleAll(cb) {
-        scrubbedRecords.forEach(r => r.selected = cb.checked);
-        renderTable();
-    }
+        // 4. Render Ad Group Negatives
+        const agNegTbody = document.getElementById('ag-negs-tbody');
+        agNegTbody.innerHTML = agNegs.map(an => `
+            <tr>
+                <td>${an.campaign_name}</td>
+                <td style="font-weight: 700;">${an.ad_group_name}</td>
+                <td style="font-family: var(--font-mono); color: var(--action-neg-ag); font-weight: 700;">${an.keyword}</td>
+                <td><span style="font-size: 0.7rem; padding: 2px 6px; background: var(--bg-subtle);">${an.match_type}</span></td>
+            </tr>
+        `).join('') || `<tr><td colspan="4">No ad-group negatives found.</td></tr>`;
 
-    function exportEditorCSV() {
-        const selected = scrubbedRecords.filter(r => r.selected && (r.action === 'SHARED_NEGATIVE' || r.action === 'ADGROUP_NEGATIVE'));
-        if (selected.length === 0) {
-            alert("No negative keywords selected!");
-            return;
-        }
-
-        let csv = "Campaign,Ad Group,Criterion Type,Keyword,Reason\n";
-        selected.forEach(r => {
-            if (r.action === 'SHARED_NEGATIVE') {
-                csv += `[Shared Negative List],,Negative Exact,[${r.term}],${r.reason}\n`;
-            } else {
-                csv += `Campaign Sculpting,AdGroup Sculpting,Negative Phrase,"${r.term}",${r.reason}\n`;
-            }
-        });
-
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `google_ads_editor_negatives_${Date.now()}.csv`;
-        a.click();
-        showToast("Downloaded Google Ads Editor CSV!");
-    }
-
-    function copyNegativeList() {
-        const negs = scrubbedRecords
-            .filter(r => r.selected && (r.action === 'SHARED_NEGATIVE' || r.action === 'ADGROUP_NEGATIVE'))
-            .map(r => r.term);
-        if (negs.length === 0) {
-            alert("No negative keywords selected!");
-            return;
-        }
-        navigator.clipboard.writeText(negs.join('\n'));
-        showToast(`Copied ${negs.length} negative keywords to clipboard!`);
+        // 5. Render Search Terms
+        const stTbody = document.getElementById('st-tbody');
+        stTbody.innerHTML = st.map(s => `
+            <tr>
+                <td style="font-family: var(--font-mono); font-weight: 700;">${s.search_term}</td>
+                <td>${s.campaign}</td>
+                <td style="color: var(--ink-secondary);">${s.ad_group}</td>
+                <td style="font-weight: 700;">$${(s.cost || 0).toFixed(2)}</td>
+                <td style="font-weight: 700; color: ${s.conversions > 0 ? 'var(--brand-green)' : 'var(--ink-muted)'};">${s.conversions}</td>
+                <td>
+                    <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 3px; background: var(--bg-subtle); font-weight: 700;">
+                        ${s.conversions > 0 ? '🟢 Keep / Promote' : (s.search_term.toLowerCase().includes('free') ? '🌐 Shared Negative' : '🎯 Ad Group Negative')}
+                    </span>
+                </td>
+            </tr>
+        `).join('') || `<tr><td colspan="6">No search terms found.</td></tr>`;
     }
 </script>
 </body>
