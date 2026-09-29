@@ -8,4 +8,5 @@ google-ads.yaml
 *.json
 !package.json
 !tsconfig.json
+output/
 dist/
