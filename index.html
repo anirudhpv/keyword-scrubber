@@ -577,7 +577,7 @@
     let blueprintData = null;
     let authSession = null;
     let accessibleAccounts = [];
-    const AUTH_SESSION_KEY = "***";
+    const AUTH_SESSION_KEY = "jev_ads_auth_session";
 
     function checkAuth() {
         try {
@@ -608,7 +608,7 @@
             const resp = await fetch("/api/google-ads/accounts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ access_token: *** })
+                body: JSON.stringify({ access_token: authSession.access_token })
             });
             const data = await resp.json();
             if (data.accounts && data.accounts.length > 0) {
@@ -705,14 +705,14 @@
         const days = document.getElementById('date-range-select').value;
         showToast(`Loading live blueprint for CID: ${cid}...`);
 
-        const token = *** ? authSession.access_token : null;
+        const token = (authSession && authSession.access_token) ? authSession.access_token : null;
 
         try {
             const resp = await fetch("/api/google-ads/study", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    access_token: ***,
+                    access_token: token,
                     customer_id: cid,
                     manager_id: managerId,
                     days: parseInt(days)
