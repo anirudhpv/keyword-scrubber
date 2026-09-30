@@ -5,7 +5,7 @@ export default {
 
     const clientId = env.GOOGLE_ADS_CLIENT_ID || env.GOOGLE_CLIENT_ID;
     const clientSecret = env.GOOGLE_ADS_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
-    const devToken = env.GOOGLE_ADS_DEVELOPER_TOKEN || "DEVELOPER_TOKEN_DEPRECATED";
+    const devToken = env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
     // 1. ROUTE: /api/auth/login
     if (path === "/api/auth/login") {
@@ -106,12 +106,16 @@ export default {
       }
 
       try {
+        const headers = {
+          "Authorization": `Bearer ${accessToken}`
+        };
+        if (devToken) {
+          headers["developer-token"] = devToken;
+        }
+
         const resp = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
           method: "GET",
-          headers: {
-            "Authorization": `Bearer ${accessToken}`,
-            "developer-token": devToken
-          }
+          headers
         });
 
         const text = await resp.text();
@@ -124,7 +128,7 @@ export default {
         }
 
         if (!resp.ok) {
-          return new Response(JSON.stringify(data), { 
+          return new Response(JSON.stringify({ error: "Google Ads API error", details: data }), { 
             status: resp.status, 
             headers: { "Content-Type": "application/json" } 
           });
