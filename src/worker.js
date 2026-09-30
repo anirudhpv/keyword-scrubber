@@ -3,33 +3,14 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Check all possible variable aliases
-    const clientId = env.GOOGLE_ADS_CLIENT_ID || env.GOOGLE_CLIENT_ID || env.CLIENT_ID || env.clientId || env.GOOGLE_CLIENTID;
-    const clientSecret = env.GOOGLE_ADS_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET || env.CLIENT_SECRET || env.clientSecret;
+    const clientId = env.GOOGLE_ADS_CLIENT_ID || env.GOOGLE_CLIENT_ID;
+    const clientSecret = env.GOOGLE_ADS_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
     const devToken = env.GOOGLE_ADS_DEVELOPER_TOKEN || "DEVELOPER_TOKEN_DEPRECATED";
-
-    // 0. DIAGNOSTIC ROUTE: Check which environment variable keys exist (Masked/Safe)
-    if (path === "/api/debug/env") {
-      const allKeys = Object.keys(env || {});
-      return new Response(JSON.stringify({
-        environment_keys_found: allKeys,
-        has_client_id: Boolean(clientId),
-        client_id_preview: clientId ? `${clientId.slice(0, 12)}...` : null,
-        has_client_secret: Boolean(clientSecret)
-      }), {
-        headers: { "Content-Type": "application/json" }
-      });
-    }
 
     // 1. ROUTE: /api/auth/login
     if (path === "/api/auth/login") {
       if (!clientId) {
-        const availableKeys = Object.keys(env || {});
-        return new Response(JSON.stringify({ 
-          error: "Missing GOOGLE_ADS_CLIENT_ID in Cloudflare environment.",
-          available_keys_in_env: availableKeys,
-          hint: "Ensure the variable name is GOOGLE_ADS_CLIENT_ID or GOOGLE_CLIENT_ID in Cloudflare Settings -> Variables and click Save and Deploy." 
-        }), {
+        return new Response(JSON.stringify({ error: "Missing GOOGLE_ADS_CLIENT_ID." }), {
           status: 500,
           headers: { "Content-Type": "application/json" }
         });
@@ -74,7 +55,7 @@ export default {
           return new Response(`Token Exchange Failed: ${JSON.stringify(tokenData)}`, { status: 400 });
         }
 
-        let userEmail = "Google User";
+        let userEmail = "Google Ads User";
         try {
           const userResp = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
             headers: { Authorization: `Bearer ${tokenData.access_token}` }
@@ -82,6 +63,13 @@ export default {
           const userData = await userResp.json();
           userEmail = userData.email || userEmail;
         } catch (e) {}
+
+        const sessionPayload = {
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || '',
+          email: userEmail,
+          expires_at: Date.now() + ((tokenData.expires_in || 3600) * 1000)
+        };
 
         const html = `
           <!DOCTYPE html>
@@ -91,21 +79,16 @@ export default {
             <h2>Authenticated as ${userEmail}</h2>
             <p>Loading your Google Ads accounts...</p>
             <script>
-              localStorage.setItem('jev_ads_auth_session', JSON.stringify({
-                access_token: ${JSON.stringify(tokenData.access_token)},
-                refresh_token: ${JSON.stringify(tokenData.refresh_token || '')},
-                email: ${JSON.stringify(userEmail)},
-                expires_at: Date.now() + (${tokenData.expires_in || 3600} * 1000)
-              }));
+              localStorage.setItem('jev_ads_auth_session', JSON.stringify(${JSON.stringify(sessionPayload)}));
               window.location.href = '/';
             </script>
           </body>
           </html>
         `;
 
-        return new Response(html, { headers: { "Content-Type": "text/html" } });
+        return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       } catch (err) {
-        return new Response(`OAuth Error: ${err.message}`, { status: 500 });
+        return new Response(`OAuth Execution Error: ${err.message}`, { status: 500 });
       }
     }
 
@@ -116,20 +99,35 @@ export default {
       const accessToken = body.access_token;
 
       if (!accessToken) {
-        return new Response(JSON.stringify({ error: "Missing access_token" }), { status: 401 });
+        return new Response(JSON.stringify({ error: "Missing access_token" }), { 
+          status: 401,
+          headers: { "Content-Type": "application/json" }
+        });
       }
 
       try {
         const resp = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
+          method: "GET",
           headers: {
             "Authorization": `Bearer ${accessToken}`,
             "developer-token": devToken
           }
         });
 
-        const data = await resp.json();
+        const text = await resp.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch(e) {
+          return new Response(JSON.stringify({ error: "Google API response parse error", raw: text }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+
         if (!resp.ok) {
-          return new Response(JSON.stringify(data), { status: resp.status, headers: { "Content-Type": "application/json" } });
+          return new Response(JSON.stringify(data), { 
+            status: resp.status, 
+            headers: { "Content-Type": "application/json" } 
+          });
         }
 
         const accounts = (data.resourceNames || []).map(rn => {
@@ -142,9 +140,14 @@ export default {
           };
         });
 
-        return new Response(JSON.stringify({ accounts }), { headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ accounts }), { 
+          headers: { "Content-Type": "application/json" } 
+        });
       } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: e.message }), { 
+          status: 500, 
+          headers: { "Content-Type": "application/json" } 
+        });
       }
     }
 
