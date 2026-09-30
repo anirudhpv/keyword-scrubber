@@ -115,7 +115,7 @@
             padding: 0 24px;
         }
 
-        /* Account Control & Fetch Bar */
+        /* Account Control & Dropdown Bar */
         .account-control-panel {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
@@ -132,7 +132,7 @@
         .control-group {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             flex-wrap: wrap;
         }
 
@@ -294,43 +294,20 @@
         .pill-applied { background: var(--brand-green-light); color: var(--brand-green); border: 1px solid var(--brand-green-border); }
         .pill-missing { background: var(--action-neg-shared-bg); color: var(--action-neg-shared); border: 1px solid #fecaca; }
 
-        .input-text {
+        .select-account-dropdown {
             background: var(--bg-page);
             border: 1px solid var(--border-strong);
             padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 0.84rem;
-            font-family: var(--font-mono);
-            outline: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
             color: var(--ink-primary);
+            min-width: 320px;
+            outline: none;
         }
-        .input-text:focus {
+        .select-account-dropdown:focus {
             border-color: var(--brand-green);
             background: #ffffff;
-        }
-
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(24, 23, 21, 0.6);
-            backdrop-filter: blur(8px);
-            z-index: 500;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            max-width: 480px;
-            width: 100%;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
         }
 
         .toast {
@@ -365,10 +342,10 @@
             </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
-            <button class="btn btn-google" id="login-btn" onclick="startClientOAuth()">
+            <a href="/api/auth/login" class="btn btn-google" id="login-btn">
                 <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
                 <span>Sign in with Google</span>
-            </button>
+            </a>
             <div id="user-profile-badge" style="display: none; align-items: center; gap: 8px;">
                 <span id="user-email-text" style="font-weight: 700; font-size: 0.82rem; color: var(--ink-secondary);"></span>
                 <button class="btn" style="padding: 4px 8px; font-size: 0.72rem;" onclick="logout()">Sign Out</button>
@@ -381,21 +358,25 @@
 
 <div class="container">
 
-    <!-- Active Account & CID Selector Control Bar -->
+    <!-- Interactive Account Selector Bar -->
     <div class="account-control-panel">
         <div class="control-group">
             <div>
-                <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--ink-muted); display: block; margin-bottom: 3px;">
-                    Google Ads Customer ID (CID)
+                <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--ink-muted); display: block; margin-bottom: 4px;">
+                    Select Google Ads Account
                 </label>
-                <input type="text" id="target-cid-input" class="input-text" placeholder="e.g. 552-945-8872" value="552-945-8872" style="min-width: 220px;">
+                <select id="account-select-dropdown" class="select-account-dropdown" onchange="handleAccountSelectionChange()">
+                    <option value="5529458872">Sailor Health (552-945-8872)</option>
+                    <option value="custom">✏️ Enter Custom Customer ID...</option>
+                </select>
+                <input type="text" id="custom-cid-input" placeholder="e.g. 123-456-7890" style="display: none; margin-top: 6px; padding: 6px 10px; font-family: var(--font-mono); font-size: 0.82rem; border-radius: 4px; border: 1px solid var(--border-strong);">
             </div>
 
             <div>
-                <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--ink-muted); display: block; margin-bottom: 3px;">
+                <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--ink-muted); display: block; margin-bottom: 4px;">
                     Date Window
                 </label>
-                <select id="date-range-select" class="input-text" style="padding: 8px 10px; font-family: var(--font-sans); font-weight: 600;">
+                <select id="date-range-select" class="select-account-dropdown" style="min-width: 140px; padding: 8px 10px; font-family: var(--font-sans);">
                     <option value="30">Last 30 Days</option>
                     <option value="60">Last 60 Days</option>
                     <option value="90">Last 90 Days</option>
@@ -403,8 +384,8 @@
                 </select>
             </div>
 
-            <button class="btn btn-primary" style="margin-top: 18px;" onclick="fetchLiveAccountBlueprint()">
-                📊 Fetch & Study Live Account
+            <button class="btn btn-primary" style="margin-top: 18px;" onclick="fetchSelectedAccountBlueprint()">
+                📊 Load Account Blueprint & Negatives
             </button>
         </div>
 
@@ -455,7 +436,7 @@
                         </tr>
                     </thead>
                     <tbody id="campaigns-tbody">
-                        <tr><td colspan="5" style="text-align: center; padding: 28px; color: var(--ink-muted);">Enter your Customer ID above and click <strong>"Fetch & Study Live Account"</strong> or load a JSON file.</td></tr>
+                        <tr><td colspan="5" style="text-align: center; padding: 28px; color: var(--ink-muted);">Select your account from the dropdown above and click <strong>"Load Account Blueprint & Negatives"</strong>.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -571,73 +552,21 @@
 
 </div>
 
-<!-- OAuth Client ID Modal -->
-<div class="modal-overlay" id="oauth-config-modal">
-    <div class="modal-card">
-        <h3 style="font-family: var(--font-serif); font-size: 1.2rem;">Google OAuth Client ID</h3>
-        <p style="font-size: 0.82rem; color: var(--ink-muted);">Enter your OAuth Client ID to authenticate directly in your browser:</p>
-        <input type="text" id="cfg-client-id" class="input-text" placeholder="xxxx.apps.googleusercontent.com">
-        <div style="display: flex; gap: 8px;">
-            <button class="btn btn-primary" style="flex: 1;" onclick="submitClientIdAndLogin()">Continue to Google Login</button>
-            <button class="btn" onclick="closeOAuthModal()">Cancel</button>
-        </div>
-    </div>
-</div>
-
 <div class="toast" id="toast">Data loaded!</div>
 
 <script>
     let blueprintData = null;
     let authSession = null;
 
-    function checkOAuthHash() {
-        const hash = window.location.hash.substring(1);
-        if (hash) {
-            const params = new URLSearchParams(hash);
-            const token = ***'access_token');
-            if (token) {
-                authSession = {
-                    access_token: ***,
-                    email: "Authenticated User",
-                    expires_at: Date.now() + 3500 * 1000
-                };
-                localStorage.setItem('***', JSON.stringify(authSession));
-                window.location.hash = '';
-                showToast("Signed in with Google successfully!");
-                checkAuth();
-            }
-        }
-    }
-
-    function startClientOAuth() {
-        const savedCid = localStorage.getItem('***');
-        if (savedCid) {
-            triggerGoogleLogin(savedCid);
+    function handleAccountSelectionChange() {
+        const sel = document.getElementById('account-select-dropdown');
+        const customInp = document.getElementById('custom-cid-input');
+        if (sel.value === 'custom') {
+            customInp.style.display = 'block';
+            customInp.focus();
         } else {
-            document.getElementById('oauth-config-modal').classList.add('active');
+            customInp.style.display = 'none';
         }
-    }
-
-    function closeOAuthModal() {
-        document.getElementById('oauth-config-modal').classList.remove('active');
-    }
-
-    function submitClientIdAndLogin() {
-        const cid = document.getElementById('cfg-client-id').value.trim();
-        if (!cid) {
-            alert("Please enter a Client ID!");
-            return;
-        }
-        localStorage.setItem('***', cid);
-        closeOAuthModal();
-        triggerGoogleLogin(cid);
-    }
-
-    function triggerGoogleLogin(clientId) {
-        const redirectUri = window.location.origin + window.location.pathname;
-        const scope = encodeURIComponent("https://www.googleapis.com/auth/adwords");
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}&prompt=consent`;
-        window.location.href = authUrl;
     }
 
     function checkAuth() {
@@ -649,9 +578,31 @@
                     document.getElementById('login-btn').style.display = 'none';
                     document.getElementById('user-profile-badge').style.display = 'flex';
                     document.getElementById('user-email-text').textContent = authSession.email || 'Authenticated';
+                    fetchAccessibleAccounts();
                 }
             }
         } catch(e) {}
+    }
+
+    async function fetchAccessibleAccounts() {
+        if (!authSession || !authSession.access_token) return;
+        try {
+            const resp = await fetch("/api/google-ads/accounts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ access_token: authSession.access_token })
+            });
+            const data = await resp.json();
+            if (data.accounts && data.accounts.length > 0) {
+                const dropdown = document.getElementById('account-select-dropdown');
+                let opts = data.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+                opts += `<option value="custom">✏️ Enter Custom Customer ID...</option>`;
+                dropdown.innerHTML = opts;
+                showToast(`Loaded ${data.accounts.length} accessible accounts!`);
+            }
+        } catch(e) {
+            console.warn("Could not auto-fetch accounts list:", e);
+        }
     }
 
     function logout() {
@@ -659,35 +610,36 @@
         window.location.reload();
     }
 
-    async function fetchLiveAccountBlueprint() {
-        const cid = document.getElementById('target-cid-input').value.trim();
-        const days = document.getElementById('date-range-select').value;
+    function fetchSelectedAccountBlueprint() {
+        const sel = document.getElementById('account-select-dropdown');
+        let cid = sel.value;
+        if (cid === 'custom') {
+            cid = document.getElementById('custom-cid-input').value.trim();
+        }
         if (!cid) {
-            alert("Please enter a Google Ads Customer ID (CID)!");
+            alert("Please select or enter an account Customer ID!");
             return;
         }
 
-        showToast(`Fetching live account blueprint for CID: ${cid}...`);
+        const days = document.getElementById('date-range-select').value;
+        showToast(`Loading account blueprint for CID: ${cid}...`);
 
-        try {
-            // Check if local API backend is available
-            const resp = await fetch("http://127.0.0.1:8090/api/study-account", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ customer_id: cid, days: parseInt(days) })
-            });
-            const res = await resp.json();
+        fetch("http://127.0.0.1:8090/api/study-account", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ customer_id: cid, days: parseInt(days) })
+        })
+        .then(r => r.json())
+        .then(res => {
             if (res.data) {
                 blueprintData = res.data;
                 renderBlueprint();
-                showToast("Account Blueprint & Negative Architecture Loaded!");
-                return;
+                showToast("Account Blueprint & Negative Coverage Loaded!");
             }
-        } catch(e) {
-            console.warn("Local API offline, querying Cloudflare worker / client endpoint");
-        }
-
-        showToast(`Ready to analyze ${cid}. Load JSON export or connect live API.`);
+        })
+        .catch(e => {
+            showToast("Tip: Load your Blueprint JSON export directly via top button.");
+        });
     }
 
     function showToast(msg) {
@@ -814,7 +766,6 @@
         showToast("Copied negatives to clipboard!");
     }
 
-    checkOAuthHash();
     checkAuth();
 </script>
 </body>

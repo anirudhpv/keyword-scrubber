@@ -11,8 +11,7 @@ export default {
     if (path === "/api/auth/login") {
       if (!clientId) {
         return new Response(JSON.stringify({ 
-          error: "Missing GOOGLE_ADS_CLIENT_ID.",
-          hint: "Set GOOGLE_ADS_CLIENT_ID in Cloudflare Environment Variables or Settings -> Variables." 
+          error: "Missing GOOGLE_ADS_CLIENT_ID in environment variables." 
         }), {
           status: 500,
           headers: { "Content-Type": "application/json" }
@@ -73,7 +72,7 @@ export default {
           <head><title>Authenticated</title></head>
           <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #fbf9f5;">
             <h2>Authenticated as ${userEmail}</h2>
-            <p>Saving session and loading your Google Ads accounts...</p>
+            <p>Loading your Google Ads accounts...</p>
             <script>
               localStorage.setItem('jev_ads_auth_session', JSON.stringify({
                 access_token: ${JSON.stringify(tokenData.access_token)},
@@ -89,11 +88,11 @@ export default {
 
         return new Response(html, { headers: { "Content-Type": "text/html" } });
       } catch (err) {
-        return new Response(`OAuth Execution Error: ${err.message}`, { status: 500 });
+        return new Response(`OAuth Error: ${err.message}`, { status: 500 });
       }
     }
 
-    // 3. ROUTE: /api/google-ads/accounts
+    // 3. ROUTE: /api/google-ads/accounts (Discovers all client accounts with names & CIDs)
     if (path === "/api/google-ads/accounts") {
       let body = {};
       try { body = await request.json(); } catch(e) {}
@@ -118,7 +117,12 @@ export default {
 
         const accounts = (data.resourceNames || []).map(rn => {
           const cid = rn.split("/")[1];
-          return { id: cid, name: `Customer Account (${cid})` };
+          const formattedCid = `${cid.slice(0,3)}-${cid.slice(3,6)}-${cid.slice(6)}`;
+          return { 
+            id: cid, 
+            formatted_id: formattedCid,
+            name: `Google Ads Account (${formattedCid})` 
+          };
         });
 
         return new Response(JSON.stringify({ accounts }), { headers: { "Content-Type": "application/json" } });
