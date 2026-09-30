@@ -243,6 +243,7 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            text-decoration: none;
         }
         .btn-google:hover {
             border-color: #4285f4;
@@ -384,7 +385,7 @@
                 <div style="display: flex; gap: 6px; align-items: center;">
                     <input type="text" id="account-search-filter" class="search-input-box" placeholder="Search by name or CID..." oninput="filterAccountsList(this.value)">
                     <select id="account-select-dropdown" class="select-account-dropdown">
-                        <option value="">— Sign in to load accessible accounts —</option>
+                        <option value="">— Sign in with Google to load your accounts —</option>
                     </select>
                 </div>
             </div>
@@ -453,7 +454,7 @@
                         </tr>
                     </thead>
                     <tbody id="campaigns-tbody">
-                        <tr><td colspan="5" style="text-align: center; padding: 28px; color: var(--ink-muted);">Sign in with Google to search and load your accounts, or load a Blueprint JSON file.</td></tr>
+                        <tr><td colspan="5" style="text-align: center; padding: 28px; color: var(--ink-muted);">Click <strong>"Sign in with Google"</strong> in the header or load a Blueprint JSON file.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -576,9 +577,11 @@
     let authSession = null;
     let accessibleAccounts = [];
 
+    const AUTH_SESSION_KEY = "jev_ads_auth_session";
+
     function checkAuth() {
         try {
-            const raw = localStorage.getItem('***');
+            const raw = localStorage.getItem(AUTH_SESSION_KEY);
             if (raw) {
                 authSession = JSON.parse(raw);
                 if (authSession && authSession.access_token && authSession.expires_at > Date.now()) {
@@ -586,37 +589,46 @@
                     document.getElementById('user-profile-badge').style.display = 'flex';
                     document.getElementById('user-email-text').textContent = authSession.email || 'Authenticated User';
                     fetchAccessibleAccounts();
+                } else {
+                    document.getElementById('login-btn').style.display = 'inline-flex';
+                    document.getElementById('user-profile-badge').style.display = 'none';
                 }
             }
-        } catch(e) {}
+        } catch(e) {
+            console.error("Auth check error:", e);
+        }
     }
 
     async function fetchAccessibleAccounts() {
         if (!authSession || !authSession.access_token) return;
+        showToast("Fetching your accessible Google Ads accounts...");
         try {
             const resp = await fetch("/api/google-ads/accounts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ access_token: *** })
+                body: JSON.stringify({ access_token: authSession.access_token })
             });
             const data = await resp.json();
             if (data.accounts && data.accounts.length > 0) {
                 accessibleAccounts = data.accounts;
                 renderAccountsDropdown(accessibleAccounts);
                 showToast(`Loaded ${accessibleAccounts.length} accessible accounts!`);
+            } else if (data.error) {
+                console.warn("API Error fetching accounts:", data.error);
+                showToast("Please authenticate or grant Google Ads access.");
             }
         } catch(e) {
-            console.warn("Could not auto-fetch accounts list:", e);
+            console.warn("Could not fetch accounts:", e);
         }
     }
 
     function renderAccountsDropdown(list) {
         const dropdown = document.getElementById('account-select-dropdown');
         if (!list || list.length === 0) {
-            dropdown.innerHTML = `<option value="">— No accounts match search —</option>`;
+            dropdown.innerHTML = `<option value="">— No accounts found —</option>`;
             return;
         }
-        dropdown.innerHTML = list.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+        dropdown.innerHTML = list.map(a => `<option value="${a.id}">${a.name} (${a.formatted_id || a.id})</option>`).join('');
     }
 
     function filterAccountsList(query) {
@@ -634,7 +646,7 @@
     }
 
     function logout() {
-        localStorage.removeItem('***');
+        localStorage.removeItem(AUTH_SESSION_KEY);
         window.location.reload();
     }
 
