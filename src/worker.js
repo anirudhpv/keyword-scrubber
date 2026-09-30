@@ -44,7 +44,7 @@ export default {
           body: new URLSearchParams({
             code,
             client_id: clientId,
-            client_secret: clientSecret,
+            client_secret: ***,
             redirect_uri: redirectUri,
             grant_type: "authorization_code"
           })
@@ -58,15 +58,15 @@ export default {
         let userEmail = "Google Ads User";
         try {
           const userResp = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-            headers: { Authorization: `Bearer ${tokenData.access_token}` }
+            headers: { Authorization: `Bearer ***}` }
           });
           const userData = await userResp.json();
           userEmail = userData.email || userEmail;
         } catch (e) {}
 
         const sessionPayload = {
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token || '',
+          access_token: ***,
+          refresh_token: *** || '',
           email: userEmail,
           expires_at: Date.now() + ((tokenData.expires_in || 3600) * 1000)
         };
@@ -77,7 +77,7 @@ export default {
           <head><title>Authenticated</title></head>
           <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #fbf9f5;">
             <h2>Authenticated as ${userEmail}</h2>
-            <p>Loading your Google Ads accounts...</p>
+            <p>Loading your Google Ads accounts & MCC hierarchy...</p>
             <script>
               localStorage.setItem('jev_ads_auth_session', JSON.stringify(${JSON.stringify(sessionPayload)}));
               window.location.href = '/';
@@ -92,7 +92,7 @@ export default {
       }
     }
 
-    // 3. ROUTE: /api/google-ads/accounts
+    // 3. ROUTE: /api/google-ads/accounts (Crawls all MCCs & Standalone accounts + Subaccounts)
     if (path === "/api/google-ads/accounts") {
       let body = {};
       try { body = await request.json(); } catch(e) {}
@@ -102,36 +102,111 @@ export default {
         return new Response(JSON.stringify({ error: "Missing access_token" }), { status: 401, headers: { "Content-Type": "application/json" } });
       }
 
-      try {
-        const headers = { "Authorization": `Bearer ${accessToken}` };
-        if (devToken && devToken !== "DEVELOPER_TOKEN_DEPRECATED") {
-          headers["developer-token"] = devToken;
-        }
+      const headers = { "Authorization": `Bearer ***}` };
+      if (devToken && devToken !== "DEVELOPER_TOKEN_DEPRECATED") {
+        headers["developer-token"] = devToken;
+      }
 
-        const resp = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
+      try {
+        // Step 1: List top-level accessible customers
+        const listResp = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
           method: "GET",
           headers
         });
 
-        const data = await resp.json();
-        if (!resp.ok) {
-          return new Response(JSON.stringify({ error: "Google Ads API list error", details: data }), { 
-            status: resp.status, 
+        const listData = await listResp.json();
+        if (!listResp.ok) {
+          return new Response(JSON.stringify({ error: "Failed to list accessible customers", details: listData }), { 
+            status: listResp.status, 
             headers: { "Content-Type": "application/json" } 
           });
         }
 
-        const accounts = (data.resourceNames || []).map(rn => {
-          const cid = rn.split("/")[1];
-          const formattedCid = `${cid.slice(0,3)}-${cid.slice(3,6)}-${cid.slice(6)}`;
-          return { 
-            id: cid, 
-            formatted_id: formattedCid,
-            name: `Google Ads Account (${formattedCid})` 
-          };
+        const topLevelCids = (listData.resourceNames || []).map(rn => rn.split("/")[1]);
+        const allDiscoveredAccounts = [];
+        const seenCids = new Set();
+
+        // Step 2: For each top-level customer, query customer_client hierarchy
+        for (const topCid of topLevelCids) {
+          try {
+            const query = `
+              SELECT
+                customer_client.client_customer,
+                customer_client.id,
+                customer_client.descriptive_name,
+                customer_client.currency_code,
+                customer_client.time_zone,
+                customer_client.manager,
+                customer_client.status,
+                customer_client.level
+              FROM customer_client
+              WHERE customer_client.status = 'ENABLED'
+            `;
+
+            const streamResp = await fetch(`https://googleads.googleapis.com/v18/customers/${topCid}/googleAds:searchStream`, {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ query })
+            });
+
+            if (streamResp.ok) {
+              const streamData = await streamResp.json();
+              for (const batch of streamData) {
+                if (batch.results) {
+                  for (const row of batch.results) {
+                    const cc = row.customerClient;
+                    if (cc && !seenCids.has(String(cc.id))) {
+                      seenCids.add(String(cc.id));
+                      const cidStr = String(cc.id);
+                      const formattedCid = `${cidStr.slice(0,3)}-${cidStr.slice(3,6)}-${cidStr.slice(6)}`;
+                      const isManager = Boolean(cc.manager);
+
+                      allDiscoveredAccounts.push({
+                        id: cidStr,
+                        formatted_id: formattedCid,
+                        name: cc.descriptiveName ? `${cc.descriptiveName} (${formattedCid})` : `Account (${formattedCid})`,
+                        raw_name: cc.descriptiveName || `Account ${formattedCid}`,
+                        is_manager: isManager,
+                        manager_id: isManager ? cidStr : topCid, // Attach the parent MCC id for login-customer-id header!
+                        currency: cc.currencyCode || "USD",
+                        level: cc.level || 0
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.warn(`Error crawling customer_client for ${topCid}:`, err);
+          }
+
+          // Fallback if topCid wasn't in customer_client stream
+          if (!seenCids.has(topCid)) {
+            seenCids.add(topCid);
+            const formattedCid = `${topCid.slice(0,3)}-${topCid.slice(3,6)}-${topCid.slice(6)}`;
+            allDiscoveredAccounts.push({
+              id: topCid,
+              formatted_id: formattedCid,
+              name: `Account (${formattedCid})`,
+              raw_name: `Account ${formattedCid}`,
+              is_manager: false,
+              manager_id: topCid,
+              currency: "USD",
+              level: 0
+            });
+          }
+        }
+
+        // Sort: Client accounts first, then managers
+        allDiscoveredAccounts.sort((a, b) => {
+          if (a.is_manager === b.is_manager) return a.name.localeCompare(b.name);
+          return a.is_manager ? 1 : -1;
         });
 
-        return new Response(JSON.stringify({ accounts }), { headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ accounts: allDiscoveredAccounts }), { 
+          headers: { "Content-Type": "application/json" } 
+        });
+
       } catch (e) {
         return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
       }
@@ -143,6 +218,7 @@ export default {
       try { body = await request.json(); } catch(e) {}
       const accessToken = body.access_token;
       const customerId = (body.customer_id || "").replace(/-/g, "").trim();
+      const managerId = (body.manager_id || "").replace(/-/g, "").trim();
       const days = parseInt(body.days || "30");
 
       if (!accessToken || !customerId) {
@@ -150,13 +226,17 @@ export default {
       }
 
       const headers = {
-        "Authorization": `Bearer ${accessToken}`,
+        "Authorization": `Bearer ***}`,
         "Content-Type": "application/json"
       };
       if (devToken && devToken !== "DEVELOPER_TOKEN_DEPRECATED") {
         headers["developer-token"] = devToken;
       }
-      if (body.login_customer_id) {
+      
+      // Attach login-customer-id if managing under an MCC
+      if (managerId && managerId !== customerId) {
+        headers["login-customer-id"] = managerId;
+      } else if (body.login_customer_id) {
         headers["login-customer-id"] = body.login_customer_id.replace(/-/g, "").trim();
       }
 
@@ -193,8 +273,7 @@ export default {
         if (campRows.length === 0 && lastApiError) {
           return new Response(JSON.stringify({ 
             error: "Google Ads API Permission / Query Error", 
-            details: lastApiError,
-            hint: "If this account is managed under an MCC, specify the Manager CID in login_customer_id." 
+            details: lastApiError 
           }), { 
             status: 400, 
             headers: { "Content-Type": "application/json" } 

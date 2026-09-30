@@ -303,7 +303,7 @@
             font-size: 0.85rem;
             font-weight: 700;
             color: var(--ink-primary);
-            min-width: 300px;
+            min-width: 320px;
             outline: none;
         }
         .select-account-dropdown:focus {
@@ -577,7 +577,7 @@
     let blueprintData = null;
     let authSession = null;
     let accessibleAccounts = [];
-    const AUTH_SESSION_KEY = "jev_ads_auth_session";
+    const AUTH_SESSION_KEY = "***";
 
     function checkAuth() {
         try {
@@ -602,31 +602,28 @@
     async function fetchAccessibleAccounts() {
         if (!authSession || !authSession.access_token) return;
         const dropdown = document.getElementById('account-select-dropdown');
-        dropdown.innerHTML = `<option value="">⏳ Fetching accessible accounts from Google Ads...</option>`;
+        dropdown.innerHTML = `<option value="">⏳ Crawling MCCs & Client Accounts...</option>`;
         
         try {
             const resp = await fetch("/api/google-ads/accounts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ access_token: authSession.access_token })
+                body: JSON.stringify({ access_token: *** })
             });
             const data = await resp.json();
             if (data.accounts && data.accounts.length > 0) {
                 accessibleAccounts = data.accounts;
                 renderAccountsDropdown(accessibleAccounts);
-                showToast(`Loaded ${accessibleAccounts.length} accessible accounts!`);
+                showToast(`Discovered ${accessibleAccounts.length} accounts across your MCCs!`);
             } else {
                 dropdown.innerHTML = `
-                    <option value="">— Select an account or enter CID —</option>
+                    <option value="">— Select an account or type CID —</option>
                     <option value="custom">✏️ Enter Customer ID manually...</option>
                 `;
-                if (data.error) {
-                    console.warn("Google API details:", data);
-                }
             }
         } catch(e) {
             dropdown.innerHTML = `
-                <option value="">— Select an account or enter CID —</option>
+                <option value="">— Select an account or type CID —</option>
                 <option value="custom">✏️ Enter Customer ID manually...</option>
             `;
         }
@@ -641,7 +638,10 @@
             `;
             return;
         }
-        let opts = list.map(a => `<option value="${a.id}">${a.name} (${a.formatted_id || a.id})</option>`).join('');
+        let opts = list.map(a => {
+            const prefix = a.is_manager ? '🏢 [MCC Manager]' : '👤';
+            return `<option value="${a.id}" data-manager="${a.manager_id || ''}">${prefix} ${a.name}</option>`;
+        }).join('');
         opts += `<option value="custom">✏️ Enter Customer ID manually...</option>`;
         dropdown.innerHTML = opts;
     }
@@ -654,6 +654,7 @@
         }
         const filtered = accessibleAccounts.filter(a => 
             (a.name && a.name.toLowerCase().includes(q)) || 
+            (a.raw_name && a.raw_name.toLowerCase().includes(q)) ||
             (a.id && a.id.includes(q)) ||
             (a.formatted_id && a.formatted_id.includes(q))
         );
@@ -685,6 +686,13 @@
         const sel = document.getElementById('account-select-dropdown');
         const searchInput = document.getElementById('account-search-filter');
         let cid = sel.value;
+        let managerId = '';
+
+        const selectedOpt = sel.options[sel.selectedIndex];
+        if (selectedOpt && selectedOpt.dataset.manager) {
+            managerId = selectedOpt.dataset.manager;
+        }
+
         if (!cid && searchInput.value) {
             cid = searchInput.value.trim().replace(/-/g, '');
         }
@@ -695,55 +703,46 @@
         }
 
         const days = document.getElementById('date-range-select').value;
-        showToast(`Loading account blueprint for CID: ${cid}...`);
+        showToast(`Loading live blueprint for CID: ${cid}...`);
 
-        // Check if user has authenticated OAuth session or fallback to local API
-        const token = authSession ? authSession.access_token : null;
+        const token = *** ? authSession.access_token : null;
 
         try {
             const resp = await fetch("/api/google-ads/study", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    access_token: token || "DEV_PI_TOKEN",
+                    access_token: ***,
                     customer_id: cid,
+                    manager_id: managerId,
                     days: parseInt(days)
                 })
             });
             const res = await resp.json();
-            if (res.data) {
+            if (res.data && res.data.campaigns) {
                 blueprintData = res.data;
                 renderBlueprint();
-                if (res.data.campaigns.length > 0) { showToast(`Loaded ${res.data.campaigns.length} campaigns showToast("Account Blueprint & Negative Coverage Loaded!"); ${res.data.search_terms.length} search terms!`); } else { showToast("Notice: 0 campaigns found for this CID. Check permissions or Manager CID."); }
+                if (blueprintData.campaigns.length > 0) {
+                    showToast(`✅ Loaded ${blueprintData.campaigns.length} campaigns & ${blueprintData.search_terms.length} search terms!`);
+                } else {
+                    showToast("Notice: 0 active campaigns found for this date range.");
+                }
                 return;
+            } else if (res.error) {
+                alert(`Google Ads API Notice: ${res.error}\n\nDetails: ${JSON.stringify(res.details || '')}`);
             }
         } catch(e) {
-            console.warn("Worker endpoint fetch failed, trying local fallback...");
+            console.warn("API Error:", e);
         }
 
-        try {
-            const resp = await fetch("http://127.0.0.1:8090/api/study-account", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ customer_id: cid, days: parseInt(days) })
-            });
-            const res = await resp.json();
-            if (res.data) {
-                blueprintData = res.data;
-                renderBlueprint();
-                if (res.data.campaigns.length > 0) { showToast(`Loaded ${res.data.campaigns.length} campaigns showToast("Account Blueprint & Negative Coverage Loaded!"); ${res.data.search_terms.length} search terms!`); } else { showToast("Notice: 0 campaigns found for this CID. Check permissions or Manager CID."); }
-                return;
-            }
-        } catch(e) {}
-
-        showToast("Error loading account data. Please ensure you are signed in.");
+        showToast("Could not load account. Please verify your Google sign-in.");
     }
 
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.textContent = msg;
         t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
+        setTimeout(() => t.classList.remove('show'), 2800);
     }
 
     function switchStep(stepId, btn) {
