@@ -681,7 +681,7 @@
         window.location.reload();
     }
 
-    function fetchSelectedAccountBlueprint() {
+    async function fetchSelectedAccountBlueprint() {
         const sel = document.getElementById('account-select-dropdown');
         const searchInput = document.getElementById('account-search-filter');
         let cid = sel.value;
@@ -697,29 +697,53 @@
         const days = document.getElementById('date-range-select').value;
         showToast(`Loading account blueprint for CID: ${cid}...`);
 
-        fetch("http://127.0.0.1:8090/api/study-account", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ customer_id: cid, days: parseInt(days) })
-        })
-        .then(r => r.json())
-        .then(res => {
+        // Check if user has authenticated OAuth session or fallback to local API
+        const token = authSession ? authSession.access_token : null;
+
+        try {
+            const resp = await fetch("/api/google-ads/study", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    access_token: token || "DEV_PI_TOKEN",
+                    customer_id: cid,
+                    days: parseInt(days)
+                })
+            });
+            const res = await resp.json();
             if (res.data) {
                 blueprintData = res.data;
                 renderBlueprint();
                 showToast("Account Blueprint & Negative Coverage Loaded!");
+                return;
             }
-        })
-        .catch(e => {
-            showToast("Tip: Load your Blueprint JSON export directly via top button.");
-        });
+        } catch(e) {
+            console.warn("Worker endpoint fetch failed, trying local fallback...");
+        }
+
+        try {
+            const resp = await fetch("http://127.0.0.1:8090/api/study-account", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ customer_id: cid, days: parseInt(days) })
+            });
+            const res = await resp.json();
+            if (res.data) {
+                blueprintData = res.data;
+                renderBlueprint();
+                showToast("Account Blueprint & Negative Coverage Loaded!");
+                return;
+            }
+        } catch(e) {}
+
+        showToast("Error loading account data. Please ensure you are signed in.");
     }
 
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.textContent = msg;
         t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2200);
+        setTimeout(() => t.classList.remove('show'), 2500);
     }
 
     function switchStep(stepId, btn) {

@@ -5,12 +5,12 @@ export default {
 
     const clientId = env.GOOGLE_ADS_CLIENT_ID || env.GOOGLE_CLIENT_ID;
     const clientSecret = env.GOOGLE_ADS_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
-    const devToken = env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    const devToken = env.GOOGLE_ADS_DEVELOPER_TOKEN || "DEVELOPER_TOKEN_DEPRECATED";
 
     // 1. ROUTE: /api/auth/login
     if (path === "/api/auth/login") {
       if (!clientId) {
-        return new Response(JSON.stringify({ error: "Missing GOOGLE_ADS_CLIENT_ID." }), {
+        return new Response(JSON.stringify({ error: "Missing GOOGLE_ADS_CLIENT_ID in environment variables." }), {
           status: 500,
           headers: { "Content-Type": "application/json" }
         });
@@ -99,17 +99,12 @@ export default {
       const accessToken = body.access_token;
 
       if (!accessToken) {
-        return new Response(JSON.stringify({ error: "Missing access_token" }), { 
-          status: 401,
-          headers: { "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({ error: "Missing access_token" }), { status: 401, headers: { "Content-Type": "application/json" } });
       }
 
       try {
-        const headers = {
-          "Authorization": `Bearer ${accessToken}`
-        };
-        if (devToken) {
+        const headers = { "Authorization": `Bearer ${accessToken}` };
+        if (devToken && devToken !== "DEVELOPER_TOKEN_DEPRECATED") {
           headers["developer-token"] = devToken;
         }
 
@@ -118,17 +113,9 @@ export default {
           headers
         });
 
-        const text = await resp.text();
-        let data = {};
-        try { data = JSON.parse(text); } catch(e) {
-          return new Response(JSON.stringify({ error: "Google API response parse error", raw: text }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-
+        const data = await resp.json();
         if (!resp.ok) {
-          return new Response(JSON.stringify({ error: "Google Ads API error", details: data }), { 
+          return new Response(JSON.stringify({ error: "Google Ads API list error", details: data }), { 
             status: resp.status, 
             headers: { "Content-Type": "application/json" } 
           });
@@ -140,22 +127,152 @@ export default {
           return { 
             id: cid, 
             formatted_id: formattedCid,
-            name: `Google Ads Account (${formattedCid})` 
+            name: `Account (${formattedCid})` 
           };
         });
 
-        return new Response(JSON.stringify({ accounts }), { 
-          headers: { "Content-Type": "application/json" } 
-        });
+        return new Response(JSON.stringify({ accounts }), { headers: { "Content-Type": "application/json" } });
       } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { 
-          status: 500, 
-          headers: { "Content-Type": "application/json" } 
-        });
+        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
       }
     }
 
-    // 4. Default: Serve static assets
+    // 4. ROUTE: /api/google-ads/study (Fetches live account blueprint, campaigns, shared lists, and search terms)
+    if (path === "/api/google-ads/study") {
+      let body = {};
+      try { body = await request.json(); } catch(e) {}
+      const accessToken = body.access_token;
+      const customerId = (body.customer_id || "").replace(/-/g, "").trim();
+      const days = parseInt(body.days || "30");
+
+      if (!accessToken || !customerId) {
+        return new Response(JSON.stringify({ error: "Missing access_token or customer_id" }), { status: 400, headers: { "Content-Type": "application/json" } });
+      }
+
+      const headers = {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      };
+      if (devToken && devToken !== "DEVELOPER_TOKEN_DEPRECATED") {
+        headers["developer-token"] = devToken;
+      }
+      if (body.login_customer_id) {
+        headers["login-customer-id"] = body.login_customer_id.replace(/-/g, "").trim();
+      }
+
+      const runGaql = async (query) => {
+        try {
+          const r = await fetch(`https://googleads.googleapis.com/v18/customers/${customerId}/googleAds:searchStream`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ query })
+          });
+          const json = await r.json();
+          if (!r.ok) return [];
+          const rows = [];
+          for (const batch of json) {
+            if (batch.results) rows.push(...batch.results);
+          }
+          return rows;
+        } catch (e) {
+          return [];
+        }
+      };
+
+      try {
+        // Query 1: Campaigns
+        const campRows = await runGaql(`SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign_budget.amount_micros FROM campaign WHERE campaign.status != 'REMOVED' ORDER BY campaign.name`);
+        const campaigns = campRows.map(r => ({
+          id: String(r.campaign.id),
+          name: r.campaign.name,
+          status: r.campaign.status,
+          type: r.campaign.advertisingChannelType || "SEARCH",
+          budget_daily: roundNumber((r.campaignBudget?.amountMicros || 0) / 1000000)
+        }));
+
+        // Query 2: Ad Groups
+        const agRows = await runGaql(`SELECT ad_group.id, ad_group.name, ad_group.status, campaign.id, campaign.name FROM ad_group WHERE ad_group.status != 'REMOVED' ORDER BY campaign.name, ad_group.name`);
+        const ad_groups = agRows.map(r => ({
+          id: String(r.adGroup.id),
+          name: r.adGroup.name,
+          status: r.adGroup.status,
+          campaign_id: String(r.campaign.id),
+          campaign_name: r.campaign.name
+        }));
+
+        // Query 3: Shared Negative Lists
+        const sharedRows = await runGaql(`SELECT shared_set.id, shared_set.name, shared_set.type, shared_set.member_count FROM shared_set WHERE shared_set.type = 'NEGATIVE_KEYWORDS' AND shared_set.status != 'REMOVED'`);
+        const shared_lists = sharedRows.map(r => ({
+          id: String(r.sharedSet.id),
+          name: r.sharedSet.name,
+          member_count: r.sharedSet.memberCount || 0,
+          applied_campaigns: []
+        }));
+
+        // Query 4: Campaign Shared Sets
+        const listMap = {};
+        shared_lists.forEach(sl => { listMap[sl.id] = sl; });
+        const cssRows = await runGaql(`SELECT campaign.id, campaign.name, shared_set.id, shared_set.name FROM campaign_shared_set WHERE campaign_shared_set.status = 'ENABLED'`);
+        cssRows.forEach(r => {
+          const sid = String(r.sharedSet.id);
+          if (listMap[sid]) {
+            listMap[sid].applied_campaigns.push({
+              campaign_id: String(r.campaign.id),
+              campaign_name: r.campaign.name
+            });
+          }
+        });
+
+        // Query 5: Campaign Negatives
+        const campNegRows = await runGaql(`SELECT campaign.id, campaign.name, campaign_criterion.keyword.text, campaign_criterion.keyword.match_type FROM campaign_criterion WHERE campaign_criterion.type = 'KEYWORD' AND campaign_criterion.negative = TRUE AND campaign_criterion.status != 'REMOVED' LIMIT 300`);
+        const campaign_negatives = campNegRows.map(r => ({
+          campaign_id: String(r.campaign.id),
+          campaign_name: r.campaign.name,
+          keyword: r.campaignCriterion.keyword.text,
+          match_type: r.campaignCriterion.keyword.matchType
+        }));
+
+        // Query 6: Ad Group Negatives
+        const agNegRows = await runGaql(`SELECT campaign.name, ad_group.id, ad_group.name, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type FROM ad_group_criterion WHERE ad_group_criterion.type = 'KEYWORD' AND ad_group_criterion.negative = TRUE AND ad_group_criterion.status != 'REMOVED' LIMIT 300`);
+        const adgroup_negatives = agNegRows.map(r => ({
+          campaign_name: r.campaign.name,
+          ad_group_id: String(r.adGroup.id),
+          ad_group_name: r.adGroup.name,
+          keyword: r.adGroupCriterion.keyword.text,
+          match_type: r.adGroupCriterion.keyword.matchType
+        }));
+
+        // Query 7: Search Terms
+        const stRows = await runGaql(`SELECT search_term_view.search_term, search_term_view.status, campaign.name, ad_group.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM search_term_view WHERE segments.date DURING LAST_${days}_DAYS ORDER BY metrics.impressions DESC LIMIT 500`);
+        const search_terms = stRows.map(r => ({
+          search_term: r.searchTermView.searchTerm,
+          status: r.searchTermView.status,
+          campaign: r.campaign.name,
+          ad_group: r.adGroup.name,
+          impressions: r.metrics.impressions || 0,
+          clicks: r.metrics.clicks || 0,
+          cost: roundNumber((r.metrics.costMicros || 0) / 1000000),
+          conversions: roundNumber(r.metrics.conversions || 0)
+        }));
+
+        return new Response(JSON.stringify({
+          data: {
+            customer_id: customerId,
+            campaigns,
+            ad_groups,
+            shared_lists,
+            campaign_negatives,
+            adgroup_negatives,
+            search_terms
+          }
+        }), { headers: { "Content-Type": "application/json" } });
+
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
+    }
+
+    // 5. Default: Serve static assets
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
@@ -163,3 +280,7 @@ export default {
     return new Response("Not Found", { status: 404 });
   }
 };
+
+function roundNumber(n) {
+  return Math.round(n * 100) / 100;
+}
