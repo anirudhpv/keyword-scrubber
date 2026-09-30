@@ -3,6 +3,9 @@ main = "src/worker.js"
 compatibility_date = "2026-09-29"
 keep_vars = true
 
+[vars]
+GOOGLE_ADS_CLIENT_ID = "247969356964-olev7e8p3afpamvhr8et26f7n46m52c1.apps.googleusercontent.com"
+
 [assets]
 directory = "."
 binding = "ASSETS"
