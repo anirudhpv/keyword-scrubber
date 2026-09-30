@@ -11,8 +11,8 @@ export default {
     if (path === "/api/auth/login") {
       if (!clientId) {
         return new Response(JSON.stringify({ 
-          error: "Missing GOOGLE_ADS_CLIENT_ID in Cloudflare Environment Variables.",
-          instructions: "Please add GOOGLE_ADS_CLIENT_ID in Cloudflare Settings -> Variables" 
+          error: "Missing GOOGLE_ADS_CLIENT_ID.",
+          hint: "Set GOOGLE_ADS_CLIENT_ID in Cloudflare Environment Variables or Settings -> Variables." 
         }), {
           status: 500,
           headers: { "Content-Type": "application/json" }
@@ -47,7 +47,7 @@ export default {
           body: new URLSearchParams({
             code,
             client_id: clientId,
-            client_secret: ***,
+            client_secret: clientSecret,
             redirect_uri: redirectUri,
             grant_type: "authorization_code"
           })
@@ -61,7 +61,7 @@ export default {
         let userEmail = "Google User";
         try {
           const userResp = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-            headers: { Authorization: `Bearer ***}` }
+            headers: { Authorization: `Bearer ${tokenData.access_token}` }
           });
           const userData = await userResp.json();
           userEmail = userData.email || userEmail;
@@ -75,9 +75,9 @@ export default {
             <h2>Authenticated as ${userEmail}</h2>
             <p>Saving session and loading your Google Ads accounts...</p>
             <script>
-              localStorage.setItem('***', JSON.stringify({
-                access_token: ***)},
-                refresh_token: *** || '')},
+              localStorage.setItem('jev_ads_auth_session', JSON.stringify({
+                access_token: ${JSON.stringify(tokenData.access_token)},
+                refresh_token: ${JSON.stringify(tokenData.refresh_token || '')},
                 email: ${JSON.stringify(userEmail)},
                 expires_at: Date.now() + (${tokenData.expires_in || 3600} * 1000)
               }));
@@ -106,7 +106,7 @@ export default {
       try {
         const resp = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
           headers: {
-            "Authorization": `Bearer ***}`,
+            "Authorization": `Bearer ${accessToken}`,
             "developer-token": devToken
           }
         });
