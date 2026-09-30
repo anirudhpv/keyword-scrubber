@@ -3,15 +3,32 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    const clientId = env.GOOGLE_ADS_CLIENT_ID || env.GOOGLE_CLIENT_ID;
-    const clientSecret = env.GOOGLE_ADS_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
+    // Check all possible variable aliases
+    const clientId = env.GOOGLE_ADS_CLIENT_ID || env.GOOGLE_CLIENT_ID || env.CLIENT_ID || env.clientId || env.GOOGLE_CLIENTID;
+    const clientSecret = env.GOOGLE_ADS_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET || env.CLIENT_SECRET || env.clientSecret;
     const devToken = env.GOOGLE_ADS_DEVELOPER_TOKEN || "DEVELOPER_TOKEN_DEPRECATED";
+
+    // 0. DIAGNOSTIC ROUTE: Check which environment variable keys exist (Masked/Safe)
+    if (path === "/api/debug/env") {
+      const allKeys = Object.keys(env || {});
+      return new Response(JSON.stringify({
+        environment_keys_found: allKeys,
+        has_client_id: Boolean(clientId),
+        client_id_preview: clientId ? `${clientId.slice(0, 12)}...` : null,
+        has_client_secret: Boolean(clientSecret)
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    }
 
     // 1. ROUTE: /api/auth/login
     if (path === "/api/auth/login") {
       if (!clientId) {
+        const availableKeys = Object.keys(env || {});
         return new Response(JSON.stringify({ 
-          error: "Missing GOOGLE_ADS_CLIENT_ID in environment variables." 
+          error: "Missing GOOGLE_ADS_CLIENT_ID in Cloudflare environment.",
+          available_keys_in_env: availableKeys,
+          hint: "Ensure the variable name is GOOGLE_ADS_CLIENT_ID or GOOGLE_CLIENT_ID in Cloudflare Settings -> Variables and click Save and Deploy." 
         }), {
           status: 500,
           headers: { "Content-Type": "application/json" }
@@ -92,7 +109,7 @@ export default {
       }
     }
 
-    // 3. ROUTE: /api/google-ads/accounts (Discovers all client accounts with names & CIDs)
+    // 3. ROUTE: /api/google-ads/accounts
     if (path === "/api/google-ads/accounts") {
       let body = {};
       try { body = await request.json(); } catch(e) {}
