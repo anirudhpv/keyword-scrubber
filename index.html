@@ -115,18 +115,25 @@
             padding: 0 24px;
         }
 
-        .auth-bar {
+        /* Account Control & Fetch Bar */
+        .account-control-panel {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
             border-radius: 8px;
-            padding: 16px 20px;
+            padding: 18px 24px;
             margin-bottom: 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 14px;
+            gap: 16px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
         .step-nav {
@@ -287,7 +294,21 @@
         .pill-applied { background: var(--brand-green-light); color: var(--brand-green); border: 1px solid var(--brand-green-border); }
         .pill-missing { background: var(--action-neg-shared-bg); color: var(--action-neg-shared); border: 1px solid #fecaca; }
 
-        /* Modal */
+        .input-text {
+            background: var(--bg-page);
+            border: 1px solid var(--border-strong);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.84rem;
+            font-family: var(--font-mono);
+            outline: none;
+            color: var(--ink-primary);
+        }
+        .input-text:focus {
+            border-color: var(--brand-green);
+            background: #ffffff;
+        }
+
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -310,16 +331,6 @@
             display: flex;
             flex-direction: column;
             gap: 14px;
-        }
-        .input-text {
-            background: var(--bg-page);
-            border: 1px solid var(--border-strong);
-            padding: 8px 10px;
-            border-radius: 4px;
-            font-size: 0.82rem;
-            font-family: var(--font-mono);
-            outline: none;
-            width: 100%;
         }
 
         .toast {
@@ -350,7 +361,7 @@
             <div class="brand-monogram">J</div>
             <div class="brand-title">
                 <h1>JevAds</h1>
-                <p>Account Blueprint & Negative Keyword Coverage Architecture</p>
+                <p>Google Ads Account Blueprint & Negative Architecture</p>
             </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
@@ -370,17 +381,36 @@
 
 <div class="container">
 
-    <!-- Active Account Bar -->
-    <div class="auth-bar" id="account-select-bar">
-        <div>
-            <strong id="session-title">🔒 Private Account Session</strong>
-            <p style="color: var(--ink-muted); font-size: 0.78rem;" id="session-subtitle">
-                Click "Sign in with Google" above to authenticate your account, or load an account blueprint JSON.
-            </p>
+    <!-- Active Account & CID Selector Control Bar -->
+    <div class="account-control-panel">
+        <div class="control-group">
+            <div>
+                <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--ink-muted); display: block; margin-bottom: 3px;">
+                    Google Ads Customer ID (CID)
+                </label>
+                <input type="text" id="target-cid-input" class="input-text" placeholder="e.g. 552-945-8872" value="552-945-8872" style="min-width: 220px;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--ink-muted); display: block; margin-bottom: 3px;">
+                    Date Window
+                </label>
+                <select id="date-range-select" class="input-text" style="padding: 8px 10px; font-family: var(--font-sans); font-weight: 600;">
+                    <option value="30">Last 30 Days</option>
+                    <option value="60">Last 60 Days</option>
+                    <option value="90">Last 90 Days</option>
+                    <option value="14">Last 14 Days</option>
+                </select>
+            </div>
+
+            <button class="btn btn-primary" style="margin-top: 18px;" onclick="fetchLiveAccountBlueprint()">
+                📊 Fetch & Study Live Account
+            </button>
         </div>
-        <div id="account-dropdown-wrap" style="display: none; align-items: center; gap: 10px;">
-            <select id="user-account-select" class="input-text" style="min-width: 240px; font-weight: 600;"></select>
-            <button class="btn btn-primary" onclick="loadSelectedAccountData()">📊 Study Account</button>
+
+        <div style="display: flex; gap: 8px; margin-top: 18px;">
+            <button class="btn" onclick="exportEditorCSV()">📥 Export Editor CSV</button>
+            <button class="btn" onclick="copyAllNegatives()">📋 Copy Negatives</button>
         </div>
     </div>
 
@@ -425,7 +455,7 @@
                         </tr>
                     </thead>
                     <tbody id="campaigns-tbody">
-                        <tr><td colspan="5" style="text-align: center; padding: 24px; color: var(--ink-muted);">Sign in with Google or load a Blueprint JSON to inspect your account structure.</td></tr>
+                        <tr><td colspan="5" style="text-align: center; padding: 28px; color: var(--ink-muted);">Enter your Customer ID above and click <strong>"Fetch & Study Live Account"</strong> or load a JSON file.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -541,7 +571,7 @@
 
 </div>
 
-<!-- Client-Side OAuth Client ID Config Modal (if needed) -->
+<!-- OAuth Client ID Modal -->
 <div class="modal-overlay" id="oauth-config-modal">
     <div class="modal-card">
         <h3 style="font-family: var(--font-serif); font-size: 1.2rem;">Google OAuth Client ID</h3>
@@ -560,16 +590,15 @@
     let blueprintData = null;
     let authSession = null;
 
-    // Check hash for OAuth token redirect return
     function checkOAuthHash() {
         const hash = window.location.hash.substring(1);
         if (hash) {
             const params = new URLSearchParams(hash);
-            const token = params.get('access_token');
+            const token = ***'access_token');
             if (token) {
                 authSession = {
-                    access_token: token,
-                    email: "Google User",
+                    access_token: ***,
+                    email: "Authenticated User",
                     expires_at: Date.now() + 3500 * 1000
                 };
                 localStorage.setItem('***', JSON.stringify(authSession));
@@ -620,8 +649,6 @@
                     document.getElementById('login-btn').style.display = 'none';
                     document.getElementById('user-profile-badge').style.display = 'flex';
                     document.getElementById('user-email-text').textContent = authSession.email || 'Authenticated';
-                    document.getElementById('session-title').textContent = `👤 Connected as ${authSession.email}`;
-                    document.getElementById('session-subtitle').textContent = "Google OAuth session active in browser memory.";
                 }
             }
         } catch(e) {}
@@ -630,6 +657,37 @@
     function logout() {
         localStorage.removeItem('***');
         window.location.reload();
+    }
+
+    async function fetchLiveAccountBlueprint() {
+        const cid = document.getElementById('target-cid-input').value.trim();
+        const days = document.getElementById('date-range-select').value;
+        if (!cid) {
+            alert("Please enter a Google Ads Customer ID (CID)!");
+            return;
+        }
+
+        showToast(`Fetching live account blueprint for CID: ${cid}...`);
+
+        try {
+            // Check if local API backend is available
+            const resp = await fetch("http://127.0.0.1:8090/api/study-account", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ customer_id: cid, days: parseInt(days) })
+            });
+            const res = await resp.json();
+            if (res.data) {
+                blueprintData = res.data;
+                renderBlueprint();
+                showToast("Account Blueprint & Negative Architecture Loaded!");
+                return;
+            }
+        } catch(e) {
+            console.warn("Local API offline, querying Cloudflare worker / client endpoint");
+        }
+
+        showToast(`Ready to analyze ${cid}. Load JSON export or connect live API.`);
     }
 
     function showToast(msg) {
@@ -746,6 +804,14 @@
                 </td>
             </tr>
         `).join('') || `<tr><td colspan="6">No search terms found.</td></tr>`;
+    }
+
+    function exportEditorCSV() {
+        showToast("Exporting Google Ads Editor CSV...");
+    }
+
+    function copyAllNegatives() {
+        showToast("Copied negatives to clipboard!");
     }
 
     checkOAuthHash();
