@@ -35,6 +35,58 @@ def load_client() -> GoogleAdsClient:
         
     raise FileNotFoundError("Missing Google Ads OAuth credentials (GOOGLE_ADS_CLIENT_ID, REFRESH_TOKEN).")
 
+def list_accounts(login_cid: Optional[str] = None) -> List[Dict[str, Any]]:
+    client = load_client()
+    accounts = []
+    ga_service = client.get_service("GoogleAdsService")
+    
+    cid = (login_cid or client.login_customer_id or "").replace("-", "").strip()
+    if cid:
+        query = """
+            SELECT
+                customer_client.client_customer,
+                customer_client.id,
+                customer_client.descriptive_name,
+                customer_client.currency_code,
+                customer_client.time_zone,
+                customer_client.manager,
+                customer_client.status
+            FROM customer_client
+            WHERE customer_client.status = 'ENABLED'
+        """
+        try:
+            stream = ga_service.search_stream(customer_id=cid, query=query)
+            for batch in stream:
+                for row in batch.results:
+                    cc = row.customer_client
+                    accounts.append({
+                        "id": str(cc.id),
+                        "name": cc.descriptive_name or f"Account {cc.id}",
+                        "currency": cc.currency_code,
+                        "time_zone": cc.time_zone,
+                        "is_manager": bool(cc.manager)
+                    })
+            if accounts:
+                return accounts
+        except Exception as e:
+            print("Error querying customer_client:", e)
+
+    customer_service = client.get_service("CustomerService")
+    try:
+        accessible = customer_service.list_accessible_customers()
+        for resource_name in accessible.resource_names:
+            c_id = resource_name.split("/")[-1]
+            accounts.append({
+                "id": c_id,
+                "name": f"Account {c_id}",
+                "currency": "USD",
+                "time_zone": "UTC",
+                "is_manager": False
+            })
+    except Exception as e:
+        print("Error listing accessible customers:", e)
+    return accounts
+
 def fetch_account_blueprint(customer_id: str, days: int = 30) -> Dict[str, Any]:
     client = load_client()
     cid = customer_id.replace("-", "").strip()
@@ -94,7 +146,7 @@ def fetch_account_blueprint(customer_id: str, days: int = 30) -> Dict[str, Any]:
     except Exception as e:
         print("Error fetching ad groups:", e)
 
-    # 3. Shared Negative Lists (Shared Sets)
+    # 3. Shared Negative Lists
     shared_lists = []
     shared_query = """
         SELECT
@@ -119,7 +171,7 @@ def fetch_account_blueprint(customer_id: str, days: int = 30) -> Dict[str, Any]:
     except Exception as e:
         print("Error fetching shared sets:", e)
 
-    # 4. Campaign Shared Sets (Which campaign uses which Shared Negative List)
+    # 4. Campaign Shared Sets
     list_map = {sl["id"]: sl for sl in shared_lists}
     css_query = """
         SELECT
@@ -171,7 +223,7 @@ def fetch_account_blueprint(customer_id: str, days: int = 30) -> Dict[str, Any]:
     except Exception as e:
         print("Error fetching campaign negatives:", e)
 
-    # 6. Ad Group-Level Negatives (Sculpting)
+    # 6. Ad Group-Level Negatives
     adgroup_negatives = []
     ag_neg_query = """
         SELECT
@@ -200,7 +252,7 @@ def fetch_account_blueprint(customer_id: str, days: int = 30) -> Dict[str, Any]:
     except Exception as e:
         print("Error fetching ad group negatives:", e)
 
-    # 7. Search Terms Report (Last N Days)
+    # 7. Search Terms Report
     search_terms = []
     st_query = f"""
         SELECT
