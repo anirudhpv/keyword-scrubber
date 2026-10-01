@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>JevAds — Google Ads React Flow Hierarchy & Negatives</title>
+    <title>JevAds Flow — Google Ads Hierarchy & Negative Architecture</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -111,17 +111,6 @@
             font-weight: 700;
         }
 
-        /* Flow Canvas Container */
-        #flow-root {
-            flex: 1;
-            position: relative;
-            background: #fbf9f5;
-            background-image: radial-gradient(#e5dfd3 1px, transparent 1px);
-            background-size: 20px 20px;
-            overflow: auto;
-            padding: 30px;
-        }
-
         .account-bar-strip {
             background: var(--bg-surface);
             border-bottom: 1px solid var(--border-subtle);
@@ -132,6 +121,16 @@
             flex-wrap: wrap;
             gap: 12px;
             flex-shrink: 0;
+        }
+
+        #flow-root {
+            flex: 1;
+            position: relative;
+            background: #fbf9f5;
+            background-image: radial-gradient(#e5dfd3 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: auto;
+            padding: 36px;
         }
 
         .btn {
@@ -191,6 +190,21 @@
             outline: none;
         }
         .select-account-dropdown:focus {
+            border-color: var(--brand-green);
+            background: #ffffff;
+        }
+
+        .input-text {
+            background: var(--bg-page);
+            border: 1px solid var(--border-strong);
+            padding: 7px 10px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-family: var(--font-mono);
+            outline: none;
+            color: var(--ink-primary);
+        }
+        .input-text:focus {
             border-color: var(--brand-green);
             background: #ffffff;
         }
@@ -335,7 +349,7 @@
             <div class="brand-monogram">J</div>
             <div class="brand-title">
                 <h1>JevAds Flow</h1>
-                <p>Google Ads Hierarchy & Negative Flow</p>
+                <p>Google Ads Hierarchy & Negative Architecture</p>
             </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
@@ -354,9 +368,11 @@
 <!-- Account Control Bar -->
 <div class="account-bar-strip">
     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-        <select id="account-dropdown" class="select-account-dropdown">
+        <select id="account-dropdown" class="select-account-dropdown" onchange="handleAccountDropdownChange()">
             <option value="">— Sign in with Google to load accounts —</option>
+            <option value="custom">✏️ Enter Custom Customer ID...</option>
         </select>
+        <input type="text" id="custom-cid-input" class="input-text" placeholder="CID: e.g. 552-945-8872" style="display: none; min-width: 180px;">
         <select id="date-select" class="select-account-dropdown" style="min-width: 130px;">
             <option value="30">Last 30 Days</option>
             <option value="60">Last 60 Days</option>
@@ -399,7 +415,6 @@
         useEffect(() => {
             window.setReactBlueprint = (data) => {
                 setBlueprint(data);
-                // Expand all by default
                 const exp = {};
                 (data.campaigns || []).forEach(c => { exp[c.name] = true; });
                 setExpandedCamps(exp);
@@ -425,7 +440,7 @@
                         Google Ads Hierarchy & Negative Flow
                     </h3>
                     <p style={{ maxWidth: "480px", margin: "0 auto 20px auto", fontSize: "0.88rem" }}>
-                        Sign in with Google above to discover your accessible accounts and render the interactive tree flow.
+                        Sign in with Google above or select an account to render your live campaign tree flow.
                     </p>
                 </div>
             );
@@ -558,7 +573,6 @@
 
     ReactDOM.render(<FlowApp />, document.getElementById('flow-root'));
 
-    // Auth & Live API Handling
     let authSession = null;
     let accessibleAccounts = [];
 
@@ -598,52 +612,80 @@
             const data = await resp.json();
             if (data.accounts && data.accounts.length > 0) {
                 accessibleAccounts = data.accounts;
-                dropdown.innerHTML = accessibleAccounts.map(a => {
+                let opts = accessibleAccounts.map(a => {
                     const prefix = a.is_manager ? '🏢 [MCC]' : '👤';
                     return `<option value="${a.id}" data-manager="${a.manager_id || ''}">${prefix} ${a.name}</option>`;
                 }).join('');
+                opts += `<option value="custom">✏️ Enter Customer ID manually...</option>`;
+                dropdown.innerHTML = opts;
                 showToast(`Loaded ${accessibleAccounts.length} accounts!`);
             } else {
-                dropdown.innerHTML = `<option value="">— No accounts found —</option>`;
+                dropdown.innerHTML = `
+                    <option value="">— Select account or enter CID —</option>
+                    <option value="custom">✏️ Enter Customer ID manually...</option>
+                `;
             }
         } catch(e) {
-            dropdown.innerHTML = `<option value="">— Error loading accounts —</option>`;
+            dropdown.innerHTML = `
+                <option value="">— Select account or enter CID —</option>
+                <option value="custom">✏️ Enter Customer ID manually...</option>
+            `;
+        }
+    }
+
+    function handleAccountDropdownChange() {
+        const sel = document.getElementById('account-dropdown');
+        const customInp = document.getElementById('custom-cid-input');
+        if (sel.value === 'custom') {
+            customInp.style.display = 'inline-block';
+            customInp.focus();
+        } else {
+            customInp.style.display = 'none';
         }
     }
 
     async function loadAccountTree() {
         const sel = document.getElementById('account-dropdown');
-        const cid = sel.value;
-        if (!cid) {
-            alert("Please sign in and select an account from the dropdown!");
-            return;
+        let cid = sel.value;
+        let managerId = '';
+
+        if (cid === 'custom') {
+            cid = document.getElementById('custom-cid-input').value.trim().replace(/-/g, '');
         }
 
-        let managerId = '';
         const selectedOpt = sel.options[sel.selectedIndex];
         if (selectedOpt && selectedOpt.dataset.manager) {
             managerId = selectedOpt.dataset.manager;
         }
 
+        if (!cid) {
+            alert("Please select an account from the dropdown or enter a Customer ID!");
+            return;
+        }
+
         const days = document.getElementById('date-select').value;
-        showToast(`Fetching live hierarchy for CID: ${cid}...`);
+        showToast(`Loading live hierarchy for CID: ${cid}...`);
+
+        const token = (authSession && authSession.access_token) ? authSession.access_token : null;
 
         try {
             const resp = await fetch("/api/google-ads/study", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    access_token: authSession.access_token,
+                    access_token: token,
                     customer_id: cid,
                     manager_id: managerId,
                     days: parseInt(days)
                 })
             });
             const res = await resp.json();
-            if (res.data) {
+            if (res.data && res.data.campaigns) {
                 window.setReactBlueprint(res.data);
                 showToast(`✅ Loaded ${res.data.campaigns.length} campaigns into React Flow!`);
                 return;
+            } else if (res.error) {
+                alert(`Google Ads Notice: ${res.error}\n\n${JSON.stringify(res.details || '')}`);
             }
         } catch(e) {
             alert("API Error loading account tree: " + e.message);
