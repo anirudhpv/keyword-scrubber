@@ -109,7 +109,7 @@ export default {
 
       try {
         // Step 1: List top-level accessible customers
-        const listResp = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
+        const listResp = await fetch("https://googleads.googleapis.com/v25/customers:listAccessibleCustomers", {
           method: "GET",
           headers
         });
@@ -143,7 +143,7 @@ export default {
               WHERE customer_client.status = 'ENABLED'
             `;
 
-            const streamResp = await fetch(`https://googleads.googleapis.com/v18/customers/${topCid}/googleAds:searchStream`, {
+            const streamResp = await fetch(`https://googleads.googleapis.com/v25/customers/${topCid}/googleAds:searchStream`, {
               method: "POST",
               headers: { ...headers, "Content-Type": "application/json" },
               body: JSON.stringify({ query })
@@ -244,7 +244,7 @@ export default {
 
       const runGaql = async (query) => {
         try {
-          const r = await fetch(`https://googleads.googleapis.com/v18/customers/${customerId}/googleAds:searchStream`, {
+          const r = await fetch(`https://googleads.googleapis.com/v25/customers/${customerId}/googleAds:searchStream`, {
             method: "POST",
             headers,
             body: JSON.stringify({ query })
