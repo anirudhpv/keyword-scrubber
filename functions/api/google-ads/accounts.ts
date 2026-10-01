@@ -11,7 +11,7 @@ export async function onRequestPost(context: any) {
   }
 
   try {
-    const resp = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
+    const resp = await fetch("https://googleads.googleapis.com/v25/customers:listAccessibleCustomers", {
       headers: {
         "Authorization": `Bearer ${accessToken}`,
         "developer-token": devToken
