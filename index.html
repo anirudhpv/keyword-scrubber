@@ -610,7 +610,7 @@
                 body: JSON.stringify({ access_token: authSession.access_token })
             });
             const data = await resp.json();
-            if (data.accounts && data.accounts.length > 0) {
+            if (resp.ok && data.accounts && data.accounts.length > 0) {
                 accessibleAccounts = data.accounts;
                 let opts = accessibleAccounts.map(a => {
                     const prefix = a.is_manager ? '🏢 [MCC]' : '👤';
@@ -620,16 +620,19 @@
                 dropdown.innerHTML = opts;
                 showToast(`Loaded ${accessibleAccounts.length} accounts!`);
             } else {
+                const errDetail = data?.details?.error?.message || data?.error || (resp.status === 401 ? "401 Unauthorized: Developer Token or OAuth Scope required" : "No accessible accounts found");
+                console.warn("Account Discovery Error:", data);
                 dropdown.innerHTML = `
-                    <option value="">— Select account or enter CID —</option>
-                    <option value="custom">✏️ Enter Customer ID manually...</option>
+                    <option value="">— ${errDetail} —</option>
                 `;
+                showToast(errDetail, "error");
             }
         } catch(e) {
+            console.error("Fetch Accounts Network Error:", e);
             dropdown.innerHTML = `
-                <option value="">— Select account or enter CID —</option>
-                <option value="custom">✏️ Enter Customer ID manually...</option>
+                <option value="">— Network Error: Failed to load accounts —</option>
             `;
+            showToast("Network Error loading accounts", "error");
         }
     }
 
