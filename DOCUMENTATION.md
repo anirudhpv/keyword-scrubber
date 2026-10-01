@@ -1,92 +1,122 @@
-# JevAds & TypeSafe Jev — Complete Project & System Documentation
+# JevAds — Negative Keyword Architecture & Search Term Triage
 
-*Last Updated: 2026-09-27*
+*Last updated: 2026-10-01*
 
----
+## What it does
 
-## 1. System Architecture Overview
+1. **See every negative keyword on an account** — shared negative lists (with their
+   actual member keywords), campaign-level negatives, and ad group-level negatives,
+   navigable as a campaign → ad group tree.
+2. **Triage new search terms against them** — for each search term in the window,
+   decide whether it is already blocked, should join an existing shared list, needs
+   a campaign or ad group negative, or should be promoted to a keyword.
 
-This project implements a **sub-millisecond Google Ads negative keyword and search intent scrubber** powered by **TypeSafe Jev (System 1 Decision Architecture)** running on a Raspberry Pi 5, with dual deployment modes (Local Server & Client-Side Browser WASM).
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           Google Ads Account                            │
-│  (Search Terms Report, Targeted KWs, Negative Lists, RSAs, Landing Page)│
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                 Dual Decision Engine Architecture                       │
-├────────────────────────────────────┬────────────────────────────────────┤
-│   MODE A: Local Pi Engine (500MB)  │   MODE B: Client WASM Engine (20MB)│
-│   • Runs on Raspberry Pi 5 CPU     │   • Downloaded from GitHub Pages   │
-│   • Q4_K_M small transformer       │   • 22M parameter INT8 encoder     │
-│   • For private automation & cron  │   • Zero server dependency         │
-└────────────────────────────────────┴────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                 4-Way Jev Decision Routing (0.01ms)                     │
-│   1. 🌐 Shared Negative List (Universal waste: jobs, free, salary, pdf)│
-│   2. 🎯 Ad Group Negative (Local traffic sculpting / intent mismatch)   │
-│   3. 🟢 Promote to Keyword (High-intent commercial buyers)              │
-│   4. 🟡 Human Review / Discovery Queue (Abstain band / new patterns)    │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       Outputs & Execution                               │
-│   • Direct 1-Click Mutation via Google Ads API v25.2                    │
-│   • Formatted Google Ads Editor CSV Download                            │
-│   • Real-Time Interactive Review Table (index.html)                     │
-└─────────────────────────────────────────────────────────────────────────┘
+Browser (index.html, React 18 + Babel standalone)
+   │  OAuth bearer token in localStorage
+   ▼
+FastAPI backend — api.py, port 8090
+   ├── google_ads.py   → Google Ads REST API v25 (searchStream, GAQL)
+   └── jev_triage.py   → JEV engine, port 8080 (/v1/systemone)
 ```
 
----
+### Google Ads API version
 
-## 2. Directory & File Inventory on the Pi
+Pinned to **v25** in `google_ads.py` (`API_VERSION`), reported by `/api/health`.
 
-### A. Jev System 1 Decision Engine (`/home/apv/projects/jev-server/`)
-• `server.py`: FastAPI server implementing the `/v1/systemone` wire protocol (`noul`, `choice`, `score`).
-• `jev_cli.py`: Command-line interface for querying Jev decisions from bash scripts or terminal.
-• `venv/`: Isolated Python virtual environment with `fastapi`, `uvicorn`, `pydantic`, `httpx`.
-• `~/.config/systemd/user/jev-server.service`: Background user service keeping Jev listening on `0.0.0.0:8080`.
+Only **major** versions appear in REST paths. Minor releases (v25.1, v25.2) apply
+automatically to the same `/v25` endpoint — there is no `/v25.2` path. As of
+2026-10-01, v25 (released 2026-07-22) is the latest published version and serves
+the v25.2 feature set. A `/v26` path is routed at the gateway but is undocumented
+and unreleased; do not move to it until it appears in the official release notes.
 
-### B. Google Ads Scrubber Application (`/home/apv/projects/jev-ads-scrubber/`)
-• `index.html`: High-density web application with live account discovery, keyword matrix, and review table.
-• `google_ads_service.py`: Google Ads API (v25.2) client handling GAQL queries for search terms, negatives, and keywords.
-• `api.py`: FastAPI backend bridging the web interface with Google Ads and Jev (Port `8090`).
-• `cli_pipeline.py`: Headless CLI and CI/CD runner script for batch processing without a browser.
-• `.github/workflows/study_and_scrub.yml`: GitHub Actions workflow enabling cloud runs using GitHub Secrets.
-• `~/.config/systemd/user/jev-ads-api.service`: Background user service for the ads API backend on port `8090`.
+### Authentication
 
----
+Pure OAuth 2.0 — the user signs in, the backend exchanges the code, and every Ads
+call rides on that user's bearer token. **No developer token**, no `google-ads.yaml`,
+no service credentials on disk. `.env` needs only `GOOGLE_ADS_CLIENT_ID` and
+`GOOGLE_ADS_CLIENT_SECRET`.
 
-## 3. Model Architecture & Size Mathematics
+### What JEV actually is
 
-| Dimension | Pi 5 Local Engine | Browser WASM Engine |
+`jev-server` (port 8080) is a **fast lexical scorer, not a machine-learning model**
+— ~130 lines of Python with no ML dependencies and no model weights. Earlier
+revisions of this document claimed a 500M-parameter transformer; that was not
+accurate.
+
+Its `choice` question type softmaxes a substring score (+3.0 if the whole choice
+appears in the text, +1.5 per matching word). That is genuinely useful when the
+choices are **real candidate strings**, and useless when they are abstract labels.
+Measured: 0.96–0.99 confidence on true lexical matches, ~0.01 on non-matches,
+200 decisions in 2.56 ms.
+
+So the work is split:
+
+| Job | Owner | Why |
 |---|---|---|
-| **Parameter Count** | ~500 Million (0.5B) | ~22 Million (0.022B) |
-| **Quantization** | Q4_K_M (GGUF) | INT8 (1 byte per param) |
-| **Size on Disk / Transfer** | **~350 MB – 500 MB** | **~20 MB – 22 MB** |
-| **Execution Environment** | Pi 5 Cortex-A76 CPU | Client Browser Memory / WebGPU |
-| **Network Requirement** | Local host / private LAN | 100% Offline after 1s load |
-| **Cross-Industry Switching** | Dynamic context injection | Dynamic 50KB in-memory profile |
+| Nearest existing negative to a term | JEV `choice` | fuzzy, batched, fast |
+| Waste vs. buyer vocabulary | JEV `choice` over a lexicon | same |
+| "Send to human review" signal | JEV abstain band | principled, calibrated |
+| Does an existing negative already block this term? | Python | exact match-type algebra, must not guess |
+| Which level the negative belongs at | Python | structural rules on campaign/ad group spread |
 
----
+`score` returns `(min+max)/2` regardless of input and is not used. `noul` carries a
+shell-command safety vocabulary and is not relevant here.
 
-## 4. Network Ports & Services
+## Triage outcomes
 
-| Service | Port | Protocol | Purpose | Status |
-|---|---|---|---|---|
-| **Jev Engine** | `8080` | HTTP / REST | `/v1/systemone` probabilistic decision endpoint | Active (`jev-server.service`) |
-| **Ads API Backend** | `8090` | HTTP / REST | Google Ads GAQL data extraction & mutation | Active (`jev-ads-api.service`) |
-| **Local Web Server** | `80` / `8765` | HTTP / Web | Serves `http://apv1.local/jev_ads.html` | Active |
+| Action | Meaning |
+|---|---|
+| `ALREADY_COVERED` | An existing negative blocks it; no spend leaking |
+| `TIGHTEN_EXISTING` | A matching negative exists but is too narrow — still spending |
+| `ADD_TO_SHARED_LIST` | Universal waste, or wasting across multiple campaigns |
+| `ADD_CAMPAIGN_NEGATIVE` | Wasting across several ad groups in one campaign |
+| `ADD_ADGROUP_NEGATIVE` | Isolated to one ad group — sculpt locally |
+| `PROMOTE` | Converting; consider an exact-match keyword |
+| `REVIEW` | Commercial intent with spend but no conversions, or JEV abstained |
+| `INSUFFICIENT_DATA` | Below the click/cost floor |
 
----
+## Endpoints (port 8090)
 
-## 5. Git Repositories
+| Endpoint | Purpose |
+|---|---|
+| `GET /` | The web app |
+| `GET /api/health` | Status, API version, JEV reachability |
+| `GET /api/auth/login` | Redirect to Google OAuth |
+| `GET /api/auth/callback` | Code → token exchange, stores session |
+| `POST /api/auth/refresh` | Renew an access token from a refresh token |
+| `POST /api/accounts` | Discover accessible accounts + MCC hierarchy |
+| `POST /api/negatives` | Every negative on the account, by level |
+| `POST /api/triage` | Negatives + JEV-routed search term recommendations |
 
-• **JevAds Scrubber:** `https://github.com/anirudhpv/jev-ads-scrubber` (`main` branch)
-• **Local Path:** `/home/apv/projects/jev-ads-scrubber`
-• **Deploy Key:** `~/.ssh/deploy_jev_ads` configured under host alias `github-jev-ads`
+## Files
+
+| File | Role |
+|---|---|
+| `api.py` | FastAPI backend, OAuth, endpoints |
+| `google_ads.py` | Google Ads REST client (v25), GAQL queries |
+| `jev_triage.py` | Lexicon, JEV calls, match-type algebra, placement rules |
+| `index.html` | Single-file React UI |
+| `cli_pipeline.py` | Headless run for CI; needs a refresh token |
+| `generate_refresh_token.py` | One-off refresh token generator for the CLI |
+| `src/worker.js` | Cloudflare Worker — **stale**, see below |
+
+## Services
+
+```
+jev-server.service    port 8080   JEV decision engine
+jev-ads-api.service   port 8090   this backend
+```
+
+## Known gaps
+
+- **`src/worker.js` is behind the Python backend.** It predates `/api/negatives`
+  and `/api/triage`, and it cannot reach JEV on localhost, so it cannot do triage
+  at all. Either expose JEV publicly, port the heuristics into the Worker, or drop
+  the Cloudflare path.
+- **Nothing mutates Google Ads yet.** Triage produces recommendations and a TSV
+  export; applying them still happens by hand or via Google Ads Editor.
+- **The intent lexicon in `jev_triage.py` is generic.** It should be tuned per
+  industry; competitor terms in particular are deliberately not hardcoded.

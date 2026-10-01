@@ -5,7 +5,6 @@ export default {
 
     const clientId = env.GOOGLE_ADS_CLIENT_ID || env.GOOGLE_CLIENT_ID;
     const clientSecret = env.GOOGLE_ADS_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
-    const devToken = env.GOOGLE_ADS_DEVELOPER_TOKEN;
 
     // 1. ROUTE: /api/auth/login
     if (path === "/api/auth/login") {
@@ -103,9 +102,6 @@ export default {
       }
 
       const headers = { "Authorization": `Bearer ***}` };
-      if (devToken && devToken !== "DEVELOPER_TOKEN_DEPRECATED") {
-        headers["developer-token"] = devToken;
-      }
 
       try {
         // Step 1: List top-level accessible customers
@@ -229,9 +225,6 @@ export default {
         "Authorization": `Bearer ***}`,
         "Content-Type": "application/json"
       };
-      if (devToken && devToken !== "DEVELOPER_TOKEN_DEPRECATED") {
-        headers["developer-token"] = devToken;
-      }
       
       // Attach login-customer-id if managing under an MCC
       if (managerId && managerId !== customerId) {

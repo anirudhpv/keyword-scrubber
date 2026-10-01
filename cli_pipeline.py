@@ -1,36 +1,66 @@
-import os
-import json
-import csv
-from google_ads_service import fetch_account_blueprint
+"""Headless triage run — same analysis as the web UI, no browser.
 
-def run():
+Needs GOOGLE_ADS_CLIENT_ID / _SECRET / _REFRESH_TOKEN in the environment.
+Generate a refresh token once with generate_refresh_token.py.
+"""
+import json
+import os
+import sys
+
+import requests
+
+import google_ads
+from jev_triage import triage
+
+
+def access_token_from_refresh() -> str:
+    resp = requests.post("https://oauth2.googleapis.com/token", data={
+        "client_id": os.environ["GOOGLE_ADS_CLIENT_ID"],
+        "client_secret": os.environ["GOOGLE_ADS_CLIENT_SECRET"],
+        "refresh_token": os.environ["GOOGLE_ADS_REFRESH_TOKEN"],
+        "grant_type": "refresh_token",
+    }, timeout=20)
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
+def run() -> int:
     cid = os.getenv("TARGET_CUSTOMER_ID", "").strip()
     if not cid:
-        print("❌ Error: TARGET_CUSTOMER_ID is required.")
-        return
+        print("TARGET_CUSTOMER_ID is required", file=sys.stderr)
+        return 1
 
+    login_cid = os.getenv("LOGIN_CUSTOMER_ID", "").strip()
     days = int(os.getenv("DAYS_BACK", "30"))
+    token = access_token_from_refresh()
+
+    print(f"Pulling {google_ads.API_VERSION} blueprint for {google_ads.format_cid(cid)}...")
+    structure = google_ads.fetch_structure(token, cid, login_cid)
+    negatives = google_ads.fetch_negatives(token, cid, login_cid)
+    terms = google_ads.fetch_search_terms(token, cid, days, login_cid)
+
+    print(f"  {len(structure['campaigns'])} campaigns, {len(structure['ad_groups'])} ad groups")
+    print(f"  {negatives['total_negatives']} negatives "
+          f"({len(negatives['shared_lists'])} shared lists, "
+          f"{len(negatives['campaign_negatives'])} campaign, "
+          f"{len(negatives['adgroup_negatives'])} ad group)")
+    print(f"  {len(terms)} search terms over {days} days\n")
+
+    result = triage(terms, negatives, min_clicks=int(os.getenv("MIN_CLICKS", "2")))
+    s = result["summary"]
+    print(f"Triage ({s['jev_questions']} JEV decisions in {s['jev_latency_ms']}ms):")
+    for action, count in sorted(s["by_action"].items(), key=lambda kv: -kv[1]):
+        print(f"  {action:22} {count}")
+    print(f"\n  Recoverable spend: ${s['wasted_spend']:.2f}")
+    print(f"  Leaking past existing negatives: ${s['leaking_spend']:.2f}")
+
     os.makedirs("output", exist_ok=True)
+    path = f"output/triage_{cid}.json"
+    with open(path, "w") as f:
+        json.dump({**structure, **negatives, **result}, f, indent=2)
+    print(f"\nWrote {path}")
+    return 0
 
-    print(f"🚀 Pulling Account Blueprint & Negative Architecture for CID: {cid}...")
-    blueprint = fetch_account_blueprint(cid, days=days)
-
-    print(f"\n📊 --- ACCOUNT ARCHITECTURE & COVERAGE ---")
-    print(f"• Active Campaigns: {len(blueprint['campaigns'])}")
-    print(f"• Active Ad Groups: {len(blueprint['ad_groups'])}")
-    print(f"• Shared Negative Lists: {len(blueprint['shared_lists'])}")
-    for sl in blueprint['shared_lists']:
-        applied = [c['campaign_name'] for c in sl['applied_campaigns']]
-        print(f"   ↳ 📋 List: \"{sl['name']}\" ({sl['member_count']} items) -> Applied to {len(applied)} campaigns: {applied[:3]}")
-
-    print(f"• Campaign-Level Negatives: {len(blueprint['campaign_negatives'])}")
-    print(f"• Ad Group-Level Negatives (Sculpting): {len(blueprint['adgroup_negatives'])}")
-    print(f"• Live Search Terms: {len(blueprint['search_terms'])}")
-
-    with open(f"output/blueprint_{cid}.json", "w") as f:
-        json.dump(blueprint, f, indent=2)
-
-    print("\n✅ Blueprint generated successfully.")
 
 if __name__ == "__main__":
-    run()
+    raise SystemExit(run())

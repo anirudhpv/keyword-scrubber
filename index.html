@@ -1,763 +1,438 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>JevAds Flow — Google Ads Hierarchy & Negative Architecture</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <style>
-        :root {
-            --bg-page: #fbf9f5;
-            --bg-surface: #ffffff;
-            --bg-subtle: #f4f0e6;
-            --bg-muted: #eae3d2;
-            
-            --ink-primary: #181715;
-            --ink-secondary: #57534e;
-            --ink-muted: #857f77;
-            --ink-faint: #b8b2a7;
-            
-            --brand-green: #1b4332;
-            --brand-green-light: #e8f3ed;
-            --brand-green-border: #b7dfc8;
-            --brand-forest: #2d6a4f;
-            --brand-amber: #d97706;
-            --brand-amber-light: #fef3c7;
-            --brand-red: #991b1b;
-            --brand-red-light: #fef2f2;
-            --brand-blue: #1e40af;
-            --brand-blue-light: #eff6ff;
-            
-            --border-subtle: #e7e2d8;
-            --border-strong: #d5cebf;
-            
-            --font-serif: 'Fraunces', Georgia, serif;
-            --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            background-color: var(--bg-page);
-            color: var(--ink-primary);
-            font-family: var(--font-sans);
-            font-size: 14px;
-            line-height: 1.5;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        header.top-bar {
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 12px 24px;
-            z-index: 100;
-            flex-shrink: 0;
-        }
-        .header-inner {
-            max-width: 1600px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        .brand-block {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .brand-monogram {
-            width: 34px;
-            height: 34px;
-            background: var(--brand-green);
-            color: #ffffff;
-            font-family: var(--font-serif);
-            font-weight: 700;
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-        }
-        .brand-title h1 {
-            font-family: var(--font-serif);
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--ink-primary);
-            line-height: 1.1;
-        }
-        .brand-title p {
-            font-size: 0.68rem;
-            color: var(--ink-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 700;
-        }
-
-        .account-bar-strip {
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 10px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 12px;
-            flex-shrink: 0;
-        }
-
-        #flow-root {
-            flex: 1;
-            position: relative;
-            background: #fbf9f5;
-            background-image: radial-gradient(#e5dfd3 1px, transparent 1px);
-            background-size: 20px 20px;
-            overflow: auto;
-            padding: 36px;
-        }
-
-        .btn {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-strong);
-            color: var(--ink-primary);
-            padding: 7px 14px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.15s ease;
-        }
-        .btn:hover {
-            border-color: var(--brand-green);
-            color: var(--brand-green);
-            background: var(--bg-subtle);
-        }
-        .btn-primary {
-            background: var(--brand-green);
-            border-color: var(--brand-green);
-            color: #ffffff;
-        }
-        .btn-primary:hover {
-            background: var(--brand-forest);
-            color: #ffffff;
-        }
-
-        .btn-google {
-            background: #ffffff;
-            border: 1px solid #d5cebf;
-            color: #1f2937;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-        .btn-google:hover {
-            border-color: #4285f4;
-            color: #4285f4;
-            background: #f8fafc;
-        }
-
-        .select-account-dropdown {
-            background: var(--bg-page);
-            border: 1px solid var(--border-strong);
-            padding: 7px 12px;
-            border-radius: 6px;
-            font-size: 0.82rem;
-            font-weight: 700;
-            color: var(--ink-primary);
-            min-width: 280px;
-            outline: none;
-        }
-        .select-account-dropdown:focus {
-            border-color: var(--brand-green);
-            background: #ffffff;
-        }
-
-        .input-text {
-            background: var(--bg-page);
-            border: 1px solid var(--border-strong);
-            padding: 7px 10px;
-            border-radius: 6px;
-            font-size: 0.82rem;
-            font-family: var(--font-mono);
-            outline: none;
-            color: var(--ink-primary);
-        }
-        .input-text:focus {
-            border-color: var(--brand-green);
-            background: #ffffff;
-        }
-
-        /* Node Cards */
-        .node-account-card {
-            background: #ffffff;
-            border: 2px solid var(--brand-green);
-            border-radius: 12px;
-            padding: 18px 22px;
-            box-shadow: 0 4px 14px rgba(27, 67, 50, 0.08);
-            min-width: 320px;
-            max-width: 360px;
-        }
-        .node-account-title {
-            font-family: var(--font-serif);
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--brand-green);
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .node-campaign-card {
-            background: #ffffff;
-            border: 1.5px solid var(--border-strong);
-            border-radius: 10px;
-            padding: 16px 18px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-            min-width: 300px;
-            max-width: 340px;
-            transition: all 0.2s;
-        }
-        .node-campaign-card:hover {
-            border-color: var(--brand-green);
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-        }
-
-        .node-adgroup-card {
-            background: #ffffff;
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 12px 14px;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
-            min-width: 260px;
-            max-width: 290px;
-        }
-
-        .pill-btn {
-            font-size: 0.72rem;
-            font-weight: 800;
-            padding: 3px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            user-select: none;
-            transition: all 0.15s ease;
-        }
-        .pill-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        }
-        .pill-shared { background: var(--brand-blue-light); color: var(--brand-blue); border: 1px solid #bfdbfe; }
-        .pill-camp-neg { background: var(--brand-red-light); color: var(--brand-red); border: 1px solid #fecaca; }
-        .pill-ag-neg { background: var(--brand-amber-light); color: var(--brand-amber); border: 1px solid #fde68a; }
-        .pill-expand { background: var(--brand-green-light); color: var(--brand-green); border: 1px solid var(--brand-green-border); }
-
-        /* Slide-over Drawer */
-        .drawer-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(24, 23, 21, 0.4);
-            backdrop-filter: blur(4px);
-            z-index: 500;
-            display: none;
-            justify-content: flex-end;
-        }
-        .drawer-overlay.active { display: flex; }
-        .drawer-panel {
-            width: 100%;
-            max-width: 540px;
-            background: #ffffff;
-            height: 100%;
-            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
-            display: flex;
-            flex-direction: column;
-            animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes slideIn {
-            from { transform: translateX(100%); }
-            to { transform: translateX(0); }
-        }
-        .drawer-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border-subtle);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--bg-subtle);
-        }
-        .drawer-title { font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700; }
-        .drawer-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--ink-muted); }
-        .drawer-content { padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
-        .drawer-row {
-            padding: 10px 14px;
-            background: var(--bg-subtle);
-            border-radius: 6px;
-            border: 1px solid var(--border-subtle);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.84rem;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: var(--brand-green);
-            color: #ffffff;
-            padding: 10px 18px;
-            border-radius: 6px;
-            font-size: 0.84rem;
-            font-weight: 700;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            transform: translateY(100px);
-            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            z-index: 1000;
-        }
-        .toast.show { transform: translateY(0); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JevAds — Negative Architecture & Search Term Triage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+:root{
+  --bg-page:#fbf9f5; --bg-surface:#fff; --bg-subtle:#f4f0e6; --bg-muted:#eae3d2;
+  --ink:#181715; --ink-2:#57534e; --ink-3:#857f77; --ink-4:#b8b2a7;
+  --green:#1b4332; --green-lt:#e8f3ed; --green-bd:#b7dfc8;
+  --amber:#b45309; --amber-lt:#fef3c7; --amber-bd:#fcd34d;
+  --red:#991b1b; --red-lt:#fef2f2; --red-bd:#fca5a5;
+  --blue:#1e40af; --blue-lt:#eff6ff; --blue-bd:#bfdbfe;
+  --purple:#5b21b6; --purple-lt:#f5f3ff; --purple-bd:#ddd6fe;
+  --bd:#e7e2d8; --bd-2:#d5cebf;
+  --serif:'Fraunces',Georgia,serif; --sans:'Plus Jakarta Sans',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg-page);color:var(--ink);font-size:14px;line-height:1.5}
+.top-bar{background:var(--bg-surface);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:50}
+.hdr{max-width:1600px;margin:0 auto;padding:12px 22px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px}
+.mono-badge{width:36px;height:36px;border-radius:9px;background:var(--green);color:#fff;display:grid;place-items:center;font-family:var(--serif);font-weight:700;font-size:1.25rem}
+.brand h1{font-family:var(--serif);font-size:1.2rem;font-weight:700;letter-spacing:-.01em}
+.brand p{font-size:.72rem;color:var(--ink-3);font-weight:500}
+.btn{font-family:var(--sans);font-weight:700;font-size:.8rem;padding:7px 13px;border-radius:7px;border:1px solid var(--bd-2);background:var(--bg-surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.12s}
+.btn:hover{background:var(--bg-subtle)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-primary:hover{background:#15362763;background:#153627}
+.sel,.inp{font-family:var(--sans);font-size:.8rem;font-weight:600;padding:7px 10px;border-radius:7px;border:1px solid var(--bd-2);background:var(--bg-surface);color:var(--ink);min-width:120px}
+.bar{background:var(--bg-subtle);border-bottom:1px solid var(--bd);padding:10px 22px}
+.bar-in{max-width:1600px;margin:0 auto;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.chip{font-size:.68rem;font-weight:800;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.c-ok{background:var(--green-lt);color:var(--green);border:1px solid var(--green-bd)}
+.c-off{background:var(--red-lt);color:var(--red);border:1px solid var(--red-bd)}
+.wrap{max-width:1600px;margin:0 auto;padding:20px 22px 60px}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--bd);margin-bottom:20px}
+.tab{padding:9px 16px;font-weight:700;font-size:.85rem;color:var(--ink-3);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer}
+.tab.on{color:var(--green);border-bottom-color:var(--green)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin-bottom:20px}
+.tile{background:var(--bg-surface);border:1px solid var(--bd);border-radius:11px;padding:13px 15px}
+.tile .k{font-size:.66rem;font-weight:800;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.tile .v{font-family:var(--serif);font-size:1.6rem;font-weight:700;line-height:1}
+.tile .s{font-size:.7rem;color:var(--ink-3);margin-top:3px}
+.card{background:var(--bg-surface);border:1px solid var(--bd);border-radius:11px;margin-bottom:11px;overflow:hidden}
+.card-h{padding:11px 15px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.card-h:hover{background:var(--bg-subtle)}
+.card-t{font-weight:700;font-size:.92rem;display:flex;align-items:center;gap:8px}
+.card-b{border-top:1px solid var(--bd);padding:13px 15px;background:#fcfbf8}
+.kw{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.76rem;font-weight:700;padding:3px 8px;border-radius:5px;margin:0 5px 5px 0;background:var(--red-lt);color:var(--red);border:1px solid var(--red-bd)}
+.kw .mt{font-family:var(--sans);font-size:.6rem;font-weight:800;opacity:.7}
+.kw.amber{background:var(--amber-lt);color:var(--amber);border-color:var(--amber-bd)}
+.kw.blue{background:var(--blue-lt);color:var(--blue);border-color:var(--blue-bd)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;font-size:.66rem;font-weight:800;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--bd);background:var(--bg-subtle);position:sticky;top:0}
+td{padding:9px 10px;border-bottom:1px solid var(--bd);vertical-align:top}
+tr:hover td{background:#fcfbf8}
+.term{font-family:var(--mono);font-weight:700;font-size:.8rem}
+.num{text-align:right;font-family:var(--mono);font-size:.78rem;white-space:nowrap}
+.act{font-size:.63rem;font-weight:800;padding:3px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;display:inline-block}
+.a-shared{background:var(--red-lt);color:var(--red);border:1px solid var(--red-bd)}
+.a-camp{background:var(--amber-lt);color:var(--amber);border:1px solid var(--amber-bd)}
+.a-ag{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+.a-tight{background:var(--purple-lt);color:var(--purple);border:1px solid var(--purple-bd)}
+.a-promote{background:var(--green-lt);color:var(--green);border:1px solid var(--green-bd)}
+.a-review{background:var(--blue-lt);color:var(--blue);border:1px solid var(--blue-bd)}
+.a-covered{background:var(--bg-muted);color:var(--ink-2);border:1px solid var(--bd-2)}
+.a-none{background:var(--bg-subtle);color:var(--ink-3);border:1px solid var(--bd)}
+.why{font-size:.74rem;color:var(--ink-2);margin-top:3px;line-height:1.45;max-width:560px}
+.empty{text-align:center;padding:70px 20px;color:var(--ink-3)}
+.empty h3{font-family:var(--serif);font-size:1.35rem;color:var(--ink);margin:10px 0 6px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(140%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;font-weight:600;font-size:.82rem;transition:.25s;z-index:200;max-width:80vw}
+.toast.on{transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--red)}
+.pill{font-size:.68rem;font-weight:700;color:var(--ink-3);background:var(--bg-subtle);border:1px solid var(--bd);padding:2px 7px;border-radius:20px}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--bd-2);border-top-color:var(--green);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.bare{background:none;border:none;cursor:pointer;font:inherit;color:inherit;padding:0}
+</style>
 </head>
 <body>
-
-<header class="top-bar">
-    <div class="header-inner">
-        <div class="brand-block">
-            <div class="brand-monogram">J</div>
-            <div class="brand-title">
-                <h1>JevAds Flow</h1>
-                <p>Google Ads Hierarchy & Negative Architecture</p>
-            </div>
-        </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <a href="/api/auth/login" class="btn btn-google" id="login-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
-                <span>Sign in with Google</span>
-            </a>
-            <div id="user-profile-badge" style="display: none; align-items: center; gap: 8px;">
-                <span id="user-email-text" style="font-weight: 700; font-size: 0.82rem; color: var(--ink-secondary);"></span>
-                <button class="btn" style="padding: 4px 8px; font-size: 0.72rem;" onclick="logout()">Sign Out</button>
-            </div>
-        </div>
-    </div>
-</header>
-
-<!-- Account Control Bar -->
-<div class="account-bar-strip">
-    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-        <select id="account-dropdown" class="select-account-dropdown" onchange="handleAccountDropdownChange()">
-            <option value="">— Sign in with Google to load accounts —</option>
-            <option value="custom">✏️ Enter Custom Customer ID...</option>
-        </select>
-        <input type="text" id="custom-cid-input" class="input-text" placeholder="CID: e.g. 552-945-8872" style="display: none; min-width: 180px;">
-        <select id="date-select" class="select-account-dropdown" style="min-width: 130px;">
-            <option value="30">Last 30 Days</option>
-            <option value="60">Last 60 Days</option>
-            <option value="90">Last 90 Days</option>
-        </select>
-        <button class="btn btn-primary" onclick="loadAccountTree()">📊 Load Account Flow</button>
-    </div>
-    <div style="display: flex; gap: 8px;">
-        <button class="btn" onclick="window.expandAllTrees()">Expand All</button>
-        <button class="btn" onclick="window.collapseAllTrees()">Collapse All</button>
-    </div>
-</div>
-
-<div id="flow-root"></div>
-
-<!-- Slide-over Drawer -->
-<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer(event)">
-    <div class="drawer-panel" onclick="event.stopPropagation()">
-        <div class="drawer-header">
-            <div>
-                <h3 class="drawer-title" id="drawer-title">Inspection Details</h3>
-                <span style="font-size: 0.72rem; font-weight: 700; color: var(--ink-muted); text-transform: uppercase;" id="drawer-subtitle">Negatives</span>
-            </div>
-            <button class="drawer-close" onclick="closeDrawer()">✕</button>
-        </div>
-        <div class="drawer-content" id="drawer-body"></div>
-    </div>
-</div>
-
-<div class="toast" id="toast">Data loaded!</div>
+<div id="root"></div>
+<div class="toast" id="toast"></div>
 
 <script type="text/babel">
-    const { useState, useEffect } = React;
-    const AUTH_SESSION_KEY = "jev_ads_auth_session";
+const {useState,useEffect,useMemo,useCallback}=React;
+const KEY="jev_ads_auth_session";
 
-    function FlowApp() {
-        const [blueprint, setBlueprint] = useState(null);
-        const [expandedCamps, setExpandedCamps] = useState({});
+const ACTION_META={
+  ADD_TO_SHARED_LIST:{label:"Shared list",cls:"a-shared",rank:1},
+  ADD_CAMPAIGN_NEGATIVE:{label:"Campaign neg",cls:"a-camp",rank:2},
+  ADD_ADGROUP_NEGATIVE:{label:"Ad group neg",cls:"a-ag",rank:3},
+  TIGHTEN_EXISTING:{label:"Tighten existing",cls:"a-tight",rank:4},
+  REVIEW:{label:"Review",cls:"a-review",rank:5},
+  PROMOTE:{label:"Promote",cls:"a-promote",rank:6},
+  ALREADY_COVERED:{label:"Covered",cls:"a-covered",rank:7},
+  INSUFFICIENT_DATA:{label:"Low data",cls:"a-none",rank:8},
+};
+const money=n=>"$"+(n||0).toFixed(2);
 
-        useEffect(() => {
-            window.setReactBlueprint = (data) => {
-                setBlueprint(data);
-                const exp = {};
-                (data.campaigns || []).forEach(c => { exp[c.name] = true; });
-                setExpandedCamps(exp);
-            };
+function toast(msg,isErr){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className="toast on"+(isErr?" err":"");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.className="toast",3800);
+}
 
-            window.expandAllTrees = () => {
-                if (!blueprint) return;
-                const exp = {};
-                (blueprint.campaigns || []).forEach(c => { exp[c.name] = true; });
-                setExpandedCamps(exp);
-            };
+async function post(url,body){
+  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){
+    const det=d.detail;
+    throw new Error(typeof det==="string"?det:(det&&det.error)||JSON.stringify(det||d).slice(0,300));
+  }
+  return d;
+}
 
-            window.collapseAllTrees = () => {
-                setExpandedCamps({});
-            };
-        }, [blueprint]);
+// ---------- session ----------
+function loadSession(){ try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null;} }
 
-        if (!blueprint) {
-            return (
-                <div style={{ textAlign: "center", padding: "100px 20px", color: "var(--ink-muted)" }}>
-                    <div style={{ fontSize: "2.4rem", marginBottom: "12px" }}>🌳</div>
-                    <h3 style={{ fontFamily: "var(--font-serif)", fontSize: "1.45rem", color: "var(--ink-primary)", marginBottom: "6px" }}>
-                        Google Ads Hierarchy & Negative Flow
-                    </h3>
-                    <p style={{ maxWidth: "480px", margin: "0 auto 20px auto", fontSize: "0.88rem" }}>
-                        Sign in with Google above or select an account to render your live campaign tree flow.
-                    </p>
-                </div>
-            );
-        }
+async function ensureFresh(s){
+  if(!s) return null;
+  if(s.expires_at>Date.now()) return s;
+  if(!s.refresh_token) return null;
+  try{
+    const n=await post("/api/auth/refresh",{refresh_token:s.refresh_token});
+    localStorage.setItem(KEY,JSON.stringify(n));
+    return n;
+  }catch(e){ return null; }
+}
 
-        const camps = blueprint.campaigns || [];
-        const ags = blueprint.ad_groups || [];
-        const shared = blueprint.shared_lists || [];
-        const campNegs = blueprint.campaign_negatives || [];
-        const agNegs = blueprint.adgroup_negatives || [];
+// ---------- negatives tab ----------
+function NegativesTab({data,query}){
+  const [open,setOpen]=useState({});
+  const q=query.trim().toLowerCase();
+  const tog=k=>setOpen(p=>({...p,[k]:!p[k]}));
+  const match=t=>!q||(t||"").toLowerCase().includes(q);
 
-        const agsByCamp = {};
-        ags.forEach(a => {
-            if (!agsByCamp[a.campaign_name]) agsByCamp[a.campaign_name] = [];
-            agsByCamp[a.campaign_name].push(a);
-        });
+  const agByCamp=useMemo(()=>{
+    const m={}; (data.ad_groups||[]).forEach(a=>{(m[a.campaign_id]=m[a.campaign_id]||[]).push(a)}); return m;
+  },[data]);
+  const campNegBy=useMemo(()=>{
+    const m={}; (data.campaign_negatives||[]).forEach(n=>{(m[n.campaign_id]=m[n.campaign_id]||[]).push(n)}); return m;
+  },[data]);
+  const agNegBy=useMemo(()=>{
+    const m={}; (data.adgroup_negatives||[]).forEach(n=>{(m[n.ad_group_id]=m[n.ad_group_id]||[]).push(n)}); return m;
+  },[data]);
 
-        const campNegsByCamp = {};
-        campNegs.forEach(cn => {
-            if (!campNegsByCamp[cn.campaign_name]) campNegsByCamp[cn.campaign_name] = [];
-            campNegsByCamp[cn.campaign_name].push(cn);
-        });
+  const lists=(data.shared_lists||[]).map(l=>({...l,keywords:l.keywords.filter(k=>match(k.text))}))
+    .filter(l=>!q||l.keywords.length||match(l.name));
 
-        const agNegsByAg = {};
-        agNegs.forEach(an => {
-            const key = `${an.campaign_name}::${an.ad_group_name}`;
-            if (!agNegsByAg[key]) agNegsByAg[key] = [];
-            agNegsByAg[key].push(an);
-        });
+  return (<div>
+    <h3 style={{fontFamily:"var(--serif)",fontSize:"1.05rem",margin:"0 0 10px"}}>
+      Shared negative lists <span className="pill">{(data.shared_lists||[]).length}</span>
+    </h3>
+    {lists.length===0&&<div className="card"><div className="card-b" style={{color:"var(--ink-3)"}}>No shared negative lists{q?" matching this filter":" on this account"}.</div></div>}
+    {lists.map(l=>(
+      <div className="card" key={l.id}>
+        <div className="card-h" onClick={()=>tog("L"+l.id)}>
+          <div className="card-t"><span>{open["L"+l.id]?"▾":"▸"}</span>📋 {l.name}</div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <span className="pill">{l.keywords.length} keywords</span>
+            <span className="pill">{l.applied_campaigns.length} campaigns</span>
+          </div>
+        </div>
+        {open["L"+l.id]&&<div className="card-b">
+          <div style={{marginBottom:10}}>
+            {l.keywords.length?l.keywords.map((k,i)=>(
+              <span className="kw" key={i}>{k.text}<span className="mt">{k.match_type}</span></span>
+            )):<span style={{color:"var(--ink-3)",fontSize:".8rem"}}>Empty list.</span>}
+          </div>
+          <div style={{fontSize:".72rem",color:"var(--ink-3)",borderTop:"1px solid var(--bd)",paddingTop:8}}>
+            <strong>Applied to:</strong> {l.applied_campaigns.length?l.applied_campaigns.map(c=>c.campaign_name).join(" · "):"not attached to any campaign — these keywords block nothing"}
+          </div>
+        </div>}
+      </div>
+    ))}
 
-        const sharedByCamp = {};
-        shared.forEach(sl => {
-            (sl.applied_campaigns || []).forEach(ac => {
-                if (!sharedByCamp[ac.campaign_name]) sharedByCamp[ac.campaign_name] = [];
-                sharedByCamp[ac.campaign_name].push(sl);
-            });
-        });
-
-        const toggleCamp = (name) => {
-            setExpandedCamps(prev => ({ ...prev, [name]: !prev[name] }));
-        };
-
-        return (
-            <div style={{ display: "flex", gap: "60px", alignItems: "flex-start", minWidth: "1200px" }}>
-                
-                {/* 1. ROOT NODE: ACCOUNT */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    <div className="node-account-card">
-                        <div className="node-account-title">
-                            <span>🏢</span>
-                            <span>{blueprint.customer_id ? `CID: ${blueprint.customer_id}` : "Account Root"}</span>
-                        </div>
-                        <p style={{ fontSize: "0.78rem", color: "var(--ink-muted)", marginBottom: "12px" }}>
-                            Google Ads Account Level
-                        </p>
-                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                            <span className="pill-btn pill-shared" onClick={() => window.openDrawerRoot('account_shared', shared)}>
-                                📋 {shared.length} Shared Lists
-                            </span>
-                            <span className="pill-btn pill-expand">
-                                📁 {camps.length} Campaigns
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 2. COLUMN: CAMPAIGNS NODES */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                    {camps.map(c => {
-                        const cAgs = agsByCamp[c.name] || [];
-                        const cShared = sharedByCamp[c.name] || [];
-                        const cNegs = campNegsByCamp[c.name] || [];
-                        const isExpanded = Boolean(expandedCamps[c.name]);
-
-                        return (
-                            <div key={c.id || c.name} style={{ display: "flex", gap: "40px", alignItems: "center" }}>
-                                
-                                <div className="node-campaign-card" style={{ borderColor: isExpanded ? "var(--brand-green)" : "var(--border-strong)" }}>
-                                    <div style={{ fontWeight: 700, fontSize: "0.98rem", color: "var(--ink-primary)", marginBottom: "2px" }}>
-                                        📁 {c.name}
-                                    </div>
-                                    <div style={{ fontSize: "0.74rem", color: "var(--ink-muted)", marginBottom: "10px" }}>
-                                        {c.type} · Budget: <strong style={{ color: "var(--brand-green)" }}>${(c.budget_daily || 0).toFixed(2)}/day</strong>
-                                    </div>
-
-                                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                                        <span className="pill-btn pill-shared" onClick={() => window.openDrawerRoot('camp_shared', { name: c.name, lists: cShared })}>
-                                            📋 {cShared.length} Lists
-                                        </span>
-                                        <span className="pill-btn pill-camp-neg" onClick={() => window.openDrawerRoot('camp_negs', { name: c.name, negs: cNegs })}>
-                                            🚫 {cNegs.length} Negs
-                                        </span>
-                                        <span className="pill-btn pill-expand" onClick={() => toggleCamp(c.name)}>
-                                            📁 {cAgs.length} Ad Groups {isExpanded ? "◀" : "▶"}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* 3. COLUMN: AD GROUPS */}
-                                {isExpanded && (
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", paddingLeft: "16px", borderLeft: "2px dashed var(--brand-green-border)" }}>
-                                        {cAgs.map(ag => {
-                                            const agKey = `${c.name}::${ag.name}`;
-                                            const localNegs = agNegsByAg[agKey] || [];
-                                            return (
-                                                <div key={ag.id || ag.name} className="node-adgroup-card">
-                                                    <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-primary)", marginBottom: "2px" }}>
-                                                        🎯 {ag.name}
-                                                    </div>
-                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px" }}>
-                                                        <span style={{ fontSize: "0.68rem", color: "var(--ink-muted)" }}>{ag.status}</span>
-                                                        <span className="pill-btn pill-ag-neg" onClick={() => window.openDrawerRoot('ag_negs', { agKey, negs: localNegs })}>
-                                                            🎯 {localNegs.length} Sculpting Negs
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                            </div>
-                        );
-                    })}
-                </div>
-
+    <h3 style={{fontFamily:"var(--serif)",fontSize:"1.05rem",margin:"22px 0 10px"}}>
+      Campaigns <span className="pill">{(data.campaigns||[]).length}</span>
+    </h3>
+    {(data.campaigns||[]).map(c=>{
+      const cn=(campNegBy[c.id]||[]).filter(n=>match(n.text));
+      const ags=agByCamp[c.id]||[];
+      const agHits=ags.reduce((s,a)=>s+(agNegBy[a.id]||[]).filter(n=>match(n.text)).length,0);
+      if(q&&!cn.length&&!agHits&&!match(c.name)) return null;
+      return (
+        <div className="card" key={c.id}>
+          <div className="card-h" onClick={()=>tog("C"+c.id)}>
+            <div className="card-t"><span>{open["C"+c.id]?"▾":"▸"}</span>📁 {c.name}</div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <span className="pill">{c.status}</span>
+              <span className="pill">{money(c.budget_daily)}/day</span>
+              <span className="pill">{cn.length} campaign negs</span>
+              <span className="pill">{ags.length} ad groups</span>
             </div>
-        );
-    }
+          </div>
+          {open["C"+c.id]&&<div className="card-b">
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:".68rem",fontWeight:800,color:"var(--ink-3)",textTransform:"uppercase",marginBottom:6}}>Campaign-level negatives</div>
+              {cn.length?cn.map((n,i)=>(<span className="kw amber" key={i}>{n.text}<span className="mt">{n.match_type}</span></span>))
+                :<span style={{color:"var(--ink-3)",fontSize:".8rem"}}>None.</span>}
+            </div>
+            <div style={{fontSize:".68rem",fontWeight:800,color:"var(--ink-3)",textTransform:"uppercase",marginBottom:6}}>Ad groups</div>
+            {ags.map(a=>{
+              const an=(agNegBy[a.id]||[]).filter(n=>match(n.text));
+              if(q&&!an.length&&!match(a.name)) return null;
+              return (<div key={a.id} style={{padding:"8px 0",borderTop:"1px solid var(--bd)"}}>
+                <div style={{fontWeight:700,fontSize:".83rem",marginBottom:4}}>🎯 {a.name} <span className="pill">{an.length} negs</span></div>
+                <div>{an.length?an.map((n,i)=>(<span className="kw blue" key={i}>{n.text}<span className="mt">{n.match_type}</span></span>))
+                  :<span style={{color:"var(--ink-4)",fontSize:".76rem"}}>No sculpting negatives.</span>}</div>
+              </div>);
+            })}
+          </div>}
+        </div>
+      );
+    })}
+  </div>);
+}
 
-    ReactDOM.render(<FlowApp />, document.getElementById('flow-root'));
+// ---------- triage tab ----------
+function TriageTab({data,query}){
+  const [filter,setFilter]=useState("ACTIONABLE");
+  const recs=data.recommendations||[];
+  const q=query.trim().toLowerCase();
+  const counts=data.summary?.by_action||{};
+  const ACTIONABLE=["ADD_TO_SHARED_LIST","ADD_CAMPAIGN_NEGATIVE","ADD_ADGROUP_NEGATIVE","TIGHTEN_EXISTING"];
 
-    let authSession = null;
-    let accessibleAccounts = [];
+  const shown=useMemo(()=>recs
+    .filter(r=>filter==="ALL"||(filter==="ACTIONABLE"?ACTIONABLE.includes(r.action):r.action===filter))
+    .filter(r=>!q||r.term.toLowerCase().includes(q))
+    .sort((a,b)=>(ACTION_META[a.action]?.rank||9)-(ACTION_META[b.action]?.rank||9)||b.cost-a.cost),
+  [recs,filter,q]);
 
-    function showToast(msg) {
-        const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
-    }
+  const copyAll=()=>{
+    const rows=shown.filter(r=>r.suggested_keyword)
+      .map(r=>[r.suggested_keyword,r.suggested_match_type,(r.target&&r.target.container_name)||"",r.action].join("\t"));
+    if(!rows.length){ toast("Nothing with a suggested keyword in this view",true); return; }
+    navigator.clipboard.writeText("Keyword\tMatch type\tDestination\tAction\n"+rows.join("\n"))
+      .then(()=>toast(`Copied ${rows.length} negatives to clipboard`))
+      .catch(()=>toast("Clipboard blocked by browser",true));
+  };
 
-    function checkAuth() {
-        try {
-            const raw = localStorage.getItem(AUTH_SESSION_KEY);
-            if (raw) {
-                authSession = JSON.parse(raw);
-                if (authSession && authSession.access_token && authSession.expires_at > Date.now()) {
-                    document.getElementById('login-btn').style.display = 'none';
-                    document.getElementById('user-profile-badge').style.display = 'flex';
-                    document.getElementById('user-email-text').textContent = authSession.display || authSession.name || authSession.email || 'Authenticated User';
-                    fetchAccessibleAccounts();
-                }
-            }
-        } catch(e) {}
-    }
+  return (<div>
+    <div className="bar-in" style={{marginBottom:14,padding:0}}>
+      <select className="sel" value={filter} onChange={e=>setFilter(e.target.value)}>
+        <option value="ACTIONABLE">Actionable only ({ACTIONABLE.reduce((s,a)=>s+(counts[a]||0),0)})</option>
+        <option value="ALL">All ({recs.length})</option>
+        {Object.keys(ACTION_META).map(a=>counts[a]?<option key={a} value={a}>{ACTION_META[a].label} ({counts[a]})</option>:null)}
+      </select>
+      <button className="btn" onClick={copyAll}>📋 Copy as TSV</button>
+      <span className="pill">JEV ran {data.summary?.jev_questions||0} decisions in {data.summary?.jev_latency_ms||0}ms</span>
+    </div>
 
-    async function fetchAccessibleAccounts() {
-        if (!authSession || !authSession.access_token) return;
-        const dropdown = document.getElementById('account-dropdown');
-        dropdown.innerHTML = `<option value="">⏳ Loading accessible accounts...</option>`;
+    <div className="card">
+      <table>
+        <thead><tr>
+          <th>Search term</th><th className="num">Cost</th><th className="num">Clicks</th>
+          <th className="num">Conv</th><th>Recommendation</th><th>Add as</th><th>Destination</th>
+        </tr></thead>
+        <tbody>
+          {shown.length===0&&<tr><td colSpan="7" style={{textAlign:"center",padding:36,color:"var(--ink-3)"}}>Nothing in this view.</td></tr>}
+          {shown.map((r,i)=>{
+            const m=ACTION_META[r.action]||{label:r.action,cls:"a-none"};
+            return (<tr key={i}>
+              <td style={{maxWidth:320}}>
+                <div className="term">{r.term}</div>
+                <div className="why">{r.reason}</div>
+              </td>
+              <td className="num" style={{fontWeight:700,color:r.cost>0?"var(--red)":"var(--ink-4)"}}>{money(r.cost)}</td>
+              <td className="num">{r.clicks}</td>
+              <td className="num" style={{color:r.conversions>0?"var(--green)":"var(--ink-4)",fontWeight:r.conversions>0?700:400}}>{r.conversions}</td>
+              <td><span className={"act "+m.cls}>{m.label}</span>
+                {r.jev_abstain&&<div style={{fontSize:".62rem",color:"var(--ink-4)",marginTop:3}}>JEV abstained</div>}
+                {!r.jev_abstain&&r.confidence>0&&<div style={{fontSize:".62rem",color:"var(--ink-4)",marginTop:3}}>conf {(r.confidence*100).toFixed(0)}%</div>}
+              </td>
+              <td>{r.suggested_keyword
+                ? <span className="kw">{r.suggested_keyword}<span className="mt">{r.suggested_match_type}</span></span>
+                : <span style={{color:"var(--ink-4)"}}>—</span>}</td>
+              <td style={{fontSize:".76rem"}}>
+                {r.target?<span><strong>{r.target.container_name}</strong><div style={{color:"var(--ink-3)",fontSize:".68rem"}}>{(r.target.level||"").replace(/_/g," ").toLowerCase()}</div></span>
+                 :r.matched_negative?<span style={{color:"var(--ink-3)"}}>{r.matched_negative.container_name}</span>
+                 :<span style={{color:"var(--ink-4)"}}>—</span>}
+              </td>
+            </tr>);
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>);
+}
 
-        try {
-            const resp = await fetch("/api/google-ads/accounts", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ access_token: authSession.access_token })
-            });
-            const data = await resp.json();
-            if (resp.ok && data.accounts && data.accounts.length > 0) {
-                accessibleAccounts = data.accounts;
-                let opts = accessibleAccounts.map(a => {
-                    const prefix = a.is_manager ? '🏢 [MCC]' : '👤';
-                    return `<option value="${a.id}" data-manager="${a.manager_id || ''}">${prefix} ${a.name}</option>`;
-                }).join('');
-                opts += `<option value="custom">✏️ Enter Customer ID manually...</option>`;
-                dropdown.innerHTML = opts;
-                showToast(`Loaded ${accessibleAccounts.length} accounts!`);
-            } else {
-                const errDetail = data?.details?.error?.message || data?.error || (resp.status === 401 ? "401 Unauthorized: Developer Token or OAuth Scope required" : "No accessible accounts found");
-                console.warn("Account Discovery Error:", data);
-                dropdown.innerHTML = `
-                    <option value="">— ${errDetail} —</option>
-                `;
-                showToast(errDetail, "error");
-            }
-        } catch(e) {
-            console.error("Fetch Accounts Network Error:", e);
-            dropdown.innerHTML = `
-                <option value="">— Network Error: Failed to load accounts —</option>
-            `;
-            showToast("Network Error loading accounts", "error");
-        }
-    }
+// ---------- app ----------
+function App(){
+  const [session,setSession]=useState(null);
+  const [health,setHealth]=useState(null);
+  const [accounts,setAccounts]=useState([]);
+  const [cid,setCid]=useState("");
+  const [days,setDays]=useState(30);
+  const [minClicks,setMinClicks]=useState(2);
+  const [tab,setTab]=useState("negatives");
+  const [data,setData]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const [query,setQuery]=useState("");
 
-    function handleAccountDropdownChange() {
-        const sel = document.getElementById('account-dropdown');
-        const customInp = document.getElementById('custom-cid-input');
-        if (sel.value === 'custom') {
-            customInp.style.display = 'inline-block';
-            customInp.focus();
-        } else {
-            customInp.style.display = 'none';
-        }
-    }
+  useEffect(()=>{
+    fetch("/api/health").then(r=>r.json()).then(setHealth).catch(()=>{});
+    (async()=>{
+      const s=await ensureFresh(loadSession());
+      if(s){ setSession(s); loadAccounts(s); }
+    })();
+  },[]);
 
-    async function loadAccountTree() {
-        const sel = document.getElementById('account-dropdown');
-        let cid = sel.value;
-        let managerId = '';
+  async function loadAccounts(s){
+    try{
+      const d=await post("/api/accounts",{access_token:s.access_token});
+      setAccounts(d.accounts||[]);
+      if(d.accounts?.length){
+        const first=d.accounts.find(a=>!a.is_manager)||d.accounts[0];
+        setCid(first.id);
+        toast(`Loaded ${d.accounts.length} accessible account${d.accounts.length>1?"s":""}`);
+      } else toast("No accessible Google Ads accounts for this login",true);
+      (d.warnings||[]).forEach(w=>console.warn("Account discovery:",w));
+    }catch(e){ toast("Account discovery failed: "+e.message,true); }
+  }
 
-        if (cid === 'custom') {
-            cid = document.getElementById('custom-cid-input').value.trim().replace(/-/g, '');
-        }
+  const account=accounts.find(a=>a.id===cid);
 
-        const selectedOpt = sel.options[sel.selectedIndex];
-        if (selectedOpt && selectedOpt.dataset.manager) {
-            managerId = selectedOpt.dataset.manager;
-        }
+  async function load(){
+    if(!cid){ toast("Pick an account first",true); return; }
+    const s=await ensureFresh(session);
+    if(!s){ toast("Session expired — sign in again",true); setSession(null); return; }
+    setSession(s); setBusy(true); setData(null);
+    const body={access_token:s.access_token,customer_id:cid,
+      login_customer_id:account?.login_customer_id||"",days:+days,min_clicks:+minClicks};
+    try{
+      const neg=await post("/api/negatives",body);
+      setData(neg);
+      toast(`${neg.total_negatives} negatives across ${neg.campaigns.length} campaigns`);
+      try{
+        const full=await post("/api/triage",body);
+        setData(full);
+        toast(`Triage complete — ${full.summary.terms_analysed} terms, ${money(full.summary.wasted_spend)} recoverable`);
+      }catch(e){ toast("Negatives loaded; triage failed: "+e.message,true); }
+    }catch(e){ toast("Load failed: "+e.message,true); }
+    finally{ setBusy(false); }
+  }
 
-        if (!cid) {
-            alert("Please select an account from the dropdown or enter a Customer ID!");
-            return;
-        }
+  const s=data?.summary;
+  return (<div>
+    <header className="top-bar"><div className="hdr">
+      <div className="brand">
+        <div className="mono-badge">J</div>
+        <div><h1>JevAds</h1><p>Negative architecture &amp; search term triage</p></div>
+      </div>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        {health&&<span className={"chip "+(health.jev?.reachable?"c-ok":"c-off")}>
+          JEV {health.jev?.reachable?"online":"offline"}</span>}
+        {health&&<span className="chip c-ok">Ads API {health.google_ads_api}</span>}
+        {session
+          ? <><span style={{fontWeight:700,fontSize:".8rem",color:"var(--ink-2)"}}>{session.display}</span>
+              <button className="btn" onClick={()=>{localStorage.removeItem(KEY);location.reload()}}>Sign out</button></>
+          : <a className="btn btn-primary" href="/api/auth/login">Sign in with Google</a>}
+      </div>
+    </div></header>
 
-        const days = document.getElementById('date-select').value;
-        showToast(`Loading live hierarchy for CID: ${cid}...`);
+    <div className="bar"><div className="bar-in">
+      <select className="sel" style={{minWidth:300}} value={cid} onChange={e=>setCid(e.target.value)}>
+        <option value="">{accounts.length?"— Select an account —":"— Sign in to load accounts —"}</option>
+        {accounts.map(a=>(<option key={a.id} value={a.id}>{a.is_manager?"🏢 [MCC] ":"👤 "}{a.label}</option>))}
+      </select>
+      <select className="sel" value={days} onChange={e=>setDays(e.target.value)}>
+        {[7,14,30,60,90].map(d=><option key={d} value={d}>Last {d} days</option>)}
+      </select>
+      <input className="inp" style={{minWidth:130}} type="number" min="0" value={minClicks}
+        onChange={e=>setMinClicks(e.target.value)} title="Minimum clicks before a term is actionable"/>
+      <button className="btn btn-primary" onClick={load} disabled={busy||!cid}>
+        {busy?<><span className="spin"></span> Loading…</>:"Analyse account"}</button>
+      {data&&<input className="inp" style={{minWidth:210,marginLeft:"auto"}} placeholder="Filter keywords / terms…"
+        value={query} onChange={e=>setQuery(e.target.value)}/>}
+    </div></div>
 
-        const token = (authSession && authSession.access_token) ? authSession.access_token : null;
+    <div className="wrap">
+      {!data&&!busy&&<div className="empty">
+        <div style={{fontSize:"2.6rem"}}>🗂️</div>
+        <h3>Negative keyword architecture</h3>
+        <p style={{maxWidth:520,margin:"0 auto"}}>
+          {session?"Pick an account and run the analysis to see every negative on the account, then triage new search terms against them."
+                  :"Sign in with Google to list the Ads accounts you can reach."}
+        </p>
+      </div>}
 
-        try {
-            const resp = await fetch("/api/google-ads/study", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    access_token: token,
-                    customer_id: cid,
-                    manager_id: managerId,
-                    days: parseInt(days)
-                })
-            });
-            const res = await resp.json();
-            if (res.data && res.data.campaigns) {
-                window.setReactBlueprint(res.data);
-                showToast(`✅ Loaded ${res.data.campaigns.length} campaigns into React Flow!`);
-                return;
-            } else if (res.error) {
-                alert(`Google Ads Notice: ${res.error}\n\n${JSON.stringify(res.details || '')}`);
-            }
-        } catch(e) {
-            alert("API Error loading account tree: " + e.message);
-        }
-    }
+      {data&&<>
+        <div className="tiles">
+          <div className="tile"><div className="k">Total negatives</div><div className="v">{data.total_negatives}</div>
+            <div className="s">{data.shared_lists.length} lists · {data.campaign_negatives.length} campaign · {data.adgroup_negatives.length} ad group</div></div>
+          <div className="tile"><div className="k">Campaigns</div><div className="v">{data.campaigns.length}</div>
+            <div className="s">{data.ad_groups.length} ad groups</div></div>
+          {s&&<><div className="tile"><div className="k">Recoverable spend</div>
+              <div className="v" style={{color:"var(--red)"}}>{money(s.wasted_spend)}</div>
+              <div className="s">across {(s.by_action.ADD_TO_SHARED_LIST||0)+(s.by_action.ADD_CAMPAIGN_NEGATIVE||0)+(s.by_action.ADD_ADGROUP_NEGATIVE||0)} new negatives</div></div>
+            <div className="tile"><div className="k">Leaking past negatives</div>
+              <div className="v" style={{color:"var(--purple)"}}>{money(s.leaking_spend)}</div>
+              <div className="s">{s.by_action.TIGHTEN_EXISTING||0} too-narrow negatives</div></div>
+            <div className="tile"><div className="k">Terms analysed</div><div className="v">{s.terms_analysed}</div>
+              <div className="s">last {data.days} days</div></div></>}
+        </div>
 
-    function logout() {
-        localStorage.removeItem(AUTH_SESSION_KEY);
-        window.location.reload();
-    }
+        <div className="tabs">
+          <button className={"tab"+(tab==="negatives"?" on":"")} onClick={()=>setTab("negatives")}>
+            Negative architecture</button>
+          <button className={"tab"+(tab==="triage"?" on":"")} onClick={()=>setTab("triage")}>
+            Search term triage {s&&<span className="pill" style={{marginLeft:5}}>{s.terms_analysed}</span>}</button>
+        </div>
 
-    window.openDrawerRoot = (type, data) => {
-        const overlay = document.getElementById('drawer-overlay');
-        const title = document.getElementById('drawer-title');
-        const subtitle = document.getElementById('drawer-subtitle');
-        const body = document.getElementById('drawer-body');
+        {tab==="negatives"
+          ? <NegativesTab data={data} query={query}/>
+          : (data.recommendations
+              ? <TriageTab data={data} query={query}/>
+              : <div className="empty"><h3>Triage unavailable</h3>
+                  <p>The JEV engine did not return recommendations. Check that it is reachable on port 8080.</p></div>)}
+      </>}
+    </div>
+  </div>);
+}
 
-        overlay.classList.add('active');
-
-        if (type === 'account_shared') {
-            title.textContent = "Account Shared Negative Lists";
-            subtitle.textContent = "Shared Library Sets";
-            body.innerHTML = data.map(sl => `
-                <div class="drawer-row">
-                    <div>
-                        <strong>📋 ${sl.name}</strong>
-                        <div style="font-size: 0.72rem; color: var(--ink-muted);">Applied to ${(sl.applied_campaigns || []).length} campaigns</div>
-                    </div>
-                    <span style="font-weight: 700; color: var(--brand-red);">${sl.member_count} keywords</span>
-                </div>
-            `).join('') || '<div>No shared lists.</div>';
-        }
-        else if (type === 'camp_shared') {
-            title.textContent = "Attached Shared Lists";
-            subtitle.textContent = data.name;
-            body.innerHTML = data.lists.map(sl => `
-                <div class="drawer-row">
-                    <strong>📋 ${sl.name}</strong>
-                    <span>${sl.member_count} keywords</span>
-                </div>
-            `).join('') || '<div style="color: var(--ink-muted);">No shared lists attached to this campaign.</div>';
-        }
-        else if (type === 'camp_negs') {
-            title.textContent = "Campaign Negative Keywords";
-            subtitle.textContent = data.name;
-            body.innerHTML = data.negs.map(cn => `
-                <div class="drawer-row">
-                    <span style="font-family: var(--font-mono); font-weight: 700; color: var(--brand-red);">${cn.keyword}</span>
-                    <span style="font-size: 0.68rem; font-weight: 800; background: #ffffff; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border-subtle);">${cn.match_type}</span>
-                </div>
-            `).join('') || '<div style="color: var(--ink-muted);">No explicit campaign negatives.</div>';
-        }
-        else if (type === 'ag_negs') {
-            title.textContent = "Ad Group Sculpting Negatives";
-            subtitle.textContent = data.agKey;
-            body.innerHTML = data.negs.map(an => `
-                <div class="drawer-row">
-                    <span style="font-family: var(--font-mono); font-weight: 700; color: var(--brand-amber);">${an.keyword}</span>
-                    <span style="font-size: 0.68rem; font-weight: 800; background: #ffffff; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border-subtle);">${an.match_type}</span>
-                </div>
-            `).join('') || '<div style="color: var(--ink-muted);">No local sculpting negatives.</div>';
-        }
-    };
-
-    function closeDrawer() {
-        document.getElementById('drawer-overlay').classList.remove('active');
-    }
-
-    checkAuth();
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
