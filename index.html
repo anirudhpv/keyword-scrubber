@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- React & Babel for Standalone React Flow Execution -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -120,7 +119,19 @@
             background-image: radial-gradient(#e5dfd3 1px, transparent 1px);
             background-size: 20px 20px;
             overflow: auto;
-            padding: 40px;
+            padding: 30px;
+        }
+
+        .account-bar-strip {
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            flex-shrink: 0;
         }
 
         .btn {
@@ -152,7 +163,39 @@
             color: #ffffff;
         }
 
-        /* ================= REACT FLOW NODES STYLES ================= */
+        .btn-google {
+            background: #ffffff;
+            border: 1px solid #d5cebf;
+            color: #1f2937;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .btn-google:hover {
+            border-color: #4285f4;
+            color: #4285f4;
+            background: #f8fafc;
+        }
+
+        .select-account-dropdown {
+            background: var(--bg-page);
+            border: 1px solid var(--border-strong);
+            padding: 7px 12px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--ink-primary);
+            min-width: 280px;
+            outline: none;
+        }
+        .select-account-dropdown:focus {
+            border-color: var(--brand-green);
+            background: #ffffff;
+        }
+
+        /* Node Cards */
         .node-account-card {
             background: #ffffff;
             border: 2px solid var(--brand-green);
@@ -161,7 +204,6 @@
             box-shadow: 0 4px 14px rgba(27, 67, 50, 0.08);
             min-width: 320px;
             max-width: 360px;
-            transition: transform 0.2s;
         }
         .node-account-title {
             font-family: var(--font-serif);
@@ -182,7 +224,7 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
             min-width: 300px;
             max-width: 340px;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.2s;
         }
         .node-campaign-card:hover {
             border-color: var(--brand-green);
@@ -199,7 +241,6 @@
             max-width: 290px;
         }
 
-        /* Clickable Pill Badges */
         .pill-btn {
             font-size: 0.72rem;
             font-weight: 800;
@@ -221,7 +262,7 @@
         .pill-ag-neg { background: var(--brand-amber-light); color: var(--brand-amber); border: 1px solid #fde68a; }
         .pill-expand { background: var(--brand-green-light); color: var(--brand-green); border: 1px solid var(--brand-green-border); }
 
-        /* Slide-over Inspection Drawer */
+        /* Slide-over Drawer */
         .drawer-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -257,7 +298,6 @@
         .drawer-title { font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700; }
         .drawer-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--ink-muted); }
         .drawer-content { padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
-
         .drawer-row {
             padding: 10px 14px;
             background: var(--bg-subtle);
@@ -268,6 +308,23 @@
             align-items: center;
             font-size: 0.84rem;
         }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--brand-green);
+            color: #ffffff;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-size: 0.84rem;
+            font-weight: 700;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            transform: translateY(100px);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1000;
+        }
+        .toast.show { transform: translateY(0); }
     </style>
 </head>
 <body>
@@ -278,15 +335,40 @@
             <div class="brand-monogram">J</div>
             <div class="brand-title">
                 <h1>JevAds Flow</h1>
-                <p>Google Ads Interactive Hierarchy & Negative Architecture</p>
+                <p>Google Ads Hierarchy & Negative Flow</p>
             </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
-            <button class="btn" onclick="document.getElementById('file-upload').click()">📂 Load Blueprint JSON</button>
-            <input type="file" id="file-upload" style="display: none;" accept=".json" onchange="handleFile(event)">
+            <a href="/api/auth/login" class="btn btn-google" id="login-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+                <span>Sign in with Google</span>
+            </a>
+            <div id="user-profile-badge" style="display: none; align-items: center; gap: 8px;">
+                <span id="user-email-text" style="font-weight: 700; font-size: 0.82rem; color: var(--ink-secondary);"></span>
+                <button class="btn" style="padding: 4px 8px; font-size: 0.72rem;" onclick="logout()">Sign Out</button>
+            </div>
         </div>
     </div>
 </header>
+
+<!-- Account Control Bar -->
+<div class="account-bar-strip">
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <select id="account-dropdown" class="select-account-dropdown">
+            <option value="">— Sign in with Google to load accounts —</option>
+        </select>
+        <select id="date-select" class="select-account-dropdown" style="min-width: 130px;">
+            <option value="30">Last 30 Days</option>
+            <option value="60">Last 60 Days</option>
+            <option value="90">Last 90 Days</option>
+        </select>
+        <button class="btn btn-primary" onclick="loadAccountTree()">📊 Load Account Flow</button>
+    </div>
+    <div style="display: flex; gap: 8px;">
+        <button class="btn" onclick="window.expandAllTrees()">Expand All</button>
+        <button class="btn" onclick="window.collapseAllTrees()">Collapse All</button>
+    </div>
+</div>
 
 <div id="flow-root"></div>
 
@@ -304,28 +386,46 @@
     </div>
 </div>
 
+<div class="toast" id="toast">Data loaded!</div>
+
 <script type="text/babel">
     const { useState, useEffect } = React;
+    const AUTH_SESSION_KEY = "jev_ads_auth_session";
 
     function FlowApp() {
         const [blueprint, setBlueprint] = useState(null);
         const [expandedCamps, setExpandedCamps] = useState({});
 
         useEffect(() => {
-            window.loadBlueprintData = (data) => {
-                setBlueprint(data.data || data);
+            window.setReactBlueprint = (data) => {
+                setBlueprint(data);
+                // Expand all by default
+                const exp = {};
+                (data.campaigns || []).forEach(c => { exp[c.name] = true; });
+                setExpandedCamps(exp);
             };
-        }, []);
+
+            window.expandAllTrees = () => {
+                if (!blueprint) return;
+                const exp = {};
+                (blueprint.campaigns || []).forEach(c => { exp[c.name] = true; });
+                setExpandedCamps(exp);
+            };
+
+            window.collapseAllTrees = () => {
+                setExpandedCamps({});
+            };
+        }, [blueprint]);
 
         if (!blueprint) {
             return (
-                <div style={{ textAlign: "center", padding: "80px 20px", color: "var(--ink-muted)" }}>
-                    <div style={{ fontSize: "2rem", marginBottom: "12px" }}>🌳</div>
-                    <h3 style={{ fontFamily: "var(--font-serif)", fontSize: "1.4rem", color: "var(--ink-primary)", marginBottom: "6px" }}>
-                        Google Ads Hierarchy Tree
+                <div style={{ textAlign: "center", padding: "100px 20px", color: "var(--ink-muted)" }}>
+                    <div style={{ fontSize: "2.4rem", marginBottom: "12px" }}>🌳</div>
+                    <h3 style={{ fontFamily: "var(--font-serif)", fontSize: "1.45rem", color: "var(--ink-primary)", marginBottom: "6px" }}>
+                        Google Ads Hierarchy & Negative Flow
                     </h3>
-                    <p style={{ maxWidth: "480px", margin: "0 auto 20px auto", fontSize: "0.9rem" }}>
-                        Click <strong>"Load Blueprint JSON"</strong> above to explore your campaigns, negative lists, and ad group sculpting flow.
+                    <p style={{ maxWidth: "480px", margin: "0 auto 20px auto", fontSize: "0.88rem" }}>
+                        Sign in with Google above to discover your accessible accounts and render the interactive tree flow.
                     </p>
                 </div>
             );
@@ -337,7 +437,6 @@
         const campNegs = blueprint.campaign_negatives || [];
         const agNegs = blueprint.adgroup_negatives || [];
 
-        // Grouping
         const agsByCamp = {};
         ags.forEach(a => {
             if (!agsByCamp[a.campaign_name]) agsByCamp[a.campaign_name] = [];
@@ -402,13 +501,11 @@
                         const isExpanded = Boolean(expandedCamps[c.name]);
 
                         return (
-                            <div key={c.id || c.name} style={{ display: "flex", gap: "50px", alignItems: "center" }}>
+                            <div key={c.id || c.name} style={{ display: "flex", gap: "40px", alignItems: "center" }}>
                                 
                                 <div className="node-campaign-card" style={{ borderColor: isExpanded ? "var(--brand-green)" : "var(--border-strong)" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
-                                        <div style={{ fontWeight: 700, fontSize: "0.98rem", color: "var(--ink-primary)" }}>
-                                            📁 {c.name}
-                                        </div>
+                                    <div style={{ fontWeight: 700, fontSize: "0.98rem", color: "var(--ink-primary)", marginBottom: "2px" }}>
+                                        📁 {c.name}
                                     </div>
                                     <div style={{ fontSize: "0.74rem", color: "var(--ink-muted)", marginBottom: "10px" }}>
                                         {c.type} · Budget: <strong style={{ color: "var(--brand-green)" }}>${(c.budget_daily || 0).toFixed(2)}/day</strong>
@@ -416,10 +513,10 @@
 
                                     <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                                         <span className="pill-btn pill-shared" onClick={() => window.openDrawerRoot('camp_shared', { name: c.name, lists: cShared })}>
-                                            📋 {cShared.length} Shared Lists
+                                            📋 {cShared.length} Lists
                                         </span>
                                         <span className="pill-btn pill-camp-neg" onClick={() => window.openDrawerRoot('camp_negs', { name: c.name, negs: cNegs })}>
-                                            🚫 {cNegs.length} Negatives
+                                            🚫 {cNegs.length} Negs
                                         </span>
                                         <span className="pill-btn pill-expand" onClick={() => toggleCamp(c.name)}>
                                             📁 {cAgs.length} Ad Groups {isExpanded ? "◀" : "▶"}
@@ -427,7 +524,7 @@
                                     </div>
                                 </div>
 
-                                {/* 3. COLUMN: AD GROUPS (EXPANDED) */}
+                                {/* 3. COLUMN: AD GROUPS */}
                                 {isExpanded && (
                                     <div style={{ display: "flex", flexDirection: "column", gap: "10px", paddingLeft: "16px", borderLeft: "2px dashed var(--brand-green-border)" }}>
                                         {cAgs.map(ag => {
@@ -461,19 +558,101 @@
 
     ReactDOM.render(<FlowApp />, document.getElementById('flow-root'));
 
-    function handleFile(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const data = JSON.parse(evt.target.result);
-                window.loadBlueprintData(data);
-            } catch(err) {
-                alert("Invalid JSON: " + err.message);
+    // Auth & Live API Handling
+    let authSession = null;
+    let accessibleAccounts = [];
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function checkAuth() {
+        try {
+            const raw = localStorage.getItem(AUTH_SESSION_KEY);
+            if (raw) {
+                authSession = JSON.parse(raw);
+                if (authSession && authSession.access_token && authSession.expires_at > Date.now()) {
+                    document.getElementById('login-btn').style.display = 'none';
+                    document.getElementById('user-profile-badge').style.display = 'flex';
+                    document.getElementById('user-email-text').textContent = authSession.email || 'Authenticated User';
+                    fetchAccessibleAccounts();
+                }
             }
-        };
-        reader.readAsText(file);
+        } catch(e) {}
+    }
+
+    async function fetchAccessibleAccounts() {
+        if (!authSession || !authSession.access_token) return;
+        const dropdown = document.getElementById('account-dropdown');
+        dropdown.innerHTML = `<option value="">⏳ Loading accessible accounts...</option>`;
+
+        try {
+            const resp = await fetch("/api/google-ads/accounts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ access_token: authSession.access_token })
+            });
+            const data = await resp.json();
+            if (data.accounts && data.accounts.length > 0) {
+                accessibleAccounts = data.accounts;
+                dropdown.innerHTML = accessibleAccounts.map(a => {
+                    const prefix = a.is_manager ? '🏢 [MCC]' : '👤';
+                    return `<option value="${a.id}" data-manager="${a.manager_id || ''}">${prefix} ${a.name}</option>`;
+                }).join('');
+                showToast(`Loaded ${accessibleAccounts.length} accounts!`);
+            } else {
+                dropdown.innerHTML = `<option value="">— No accounts found —</option>`;
+            }
+        } catch(e) {
+            dropdown.innerHTML = `<option value="">— Error loading accounts —</option>`;
+        }
+    }
+
+    async function loadAccountTree() {
+        const sel = document.getElementById('account-dropdown');
+        const cid = sel.value;
+        if (!cid) {
+            alert("Please sign in and select an account from the dropdown!");
+            return;
+        }
+
+        let managerId = '';
+        const selectedOpt = sel.options[sel.selectedIndex];
+        if (selectedOpt && selectedOpt.dataset.manager) {
+            managerId = selectedOpt.dataset.manager;
+        }
+
+        const days = document.getElementById('date-select').value;
+        showToast(`Fetching live hierarchy for CID: ${cid}...`);
+
+        try {
+            const resp = await fetch("/api/google-ads/study", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    access_token: authSession.access_token,
+                    customer_id: cid,
+                    manager_id: managerId,
+                    days: parseInt(days)
+                })
+            });
+            const res = await resp.json();
+            if (res.data) {
+                window.setReactBlueprint(res.data);
+                showToast(`✅ Loaded ${res.data.campaigns.length} campaigns into React Flow!`);
+                return;
+            }
+        } catch(e) {
+            alert("API Error loading account tree: " + e.message);
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem(AUTH_SESSION_KEY);
+        window.location.reload();
     }
 
     window.openDrawerRoot = (type, data) => {
@@ -532,6 +711,8 @@
     function closeDrawer() {
         document.getElementById('drawer-overlay').classList.remove('active');
     }
+
+    checkAuth();
 </script>
 </body>
 </html>
