@@ -591,7 +591,7 @@
                 if (authSession && authSession.access_token && authSession.expires_at > Date.now()) {
                     document.getElementById('login-btn').style.display = 'none';
                     document.getElementById('user-profile-badge').style.display = 'flex';
-                    document.getElementById('user-email-text').textContent = authSession.email || 'Authenticated User';
+                    document.getElementById('user-email-text').textContent = authSession.display || authSession.name || authSession.email || 'Authenticated User';
                     fetchAccessibleAccounts();
                 }
             }

@@ -11,7 +11,7 @@ export async function onRequestGet(context: any) {
 
   const url = new URL(request.url);
   const redirectUri = `${url.origin}/api/auth/callback`;
-  const scope = encodeURIComponent("https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/userinfo.email");
+  const scope = encodeURIComponent("openid email profile https://www.googleapis.com/auth/adwords");
   
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
 

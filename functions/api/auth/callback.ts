@@ -36,31 +36,54 @@ export async function onRequestGet(context: any) {
     return new Response(`Token Exchange Failed: ${JSON.stringify(tokenData)}`, { status: 400 });
   }
 
-  // Get user info
-  let userEmail = "Google User";
-  try {
-    const userResp = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` }
-    });
-    const userData: any = await userResp.json();
-    userEmail = userData.email || userEmail;
-  } catch (e) {}
+  // Extract user info from id_token and userinfo API
+  let userEmail = "";
+  let userName = "";
+  let userPicture = "";
 
-  // Return HTML script that stores token in localStorage and redirects to dashboard
+  if (tokenData.id_token) {
+    try {
+      const payloadBase64 = tokenData.id_token.split(".")[1];
+      const decodedPayload = JSON.parse(atob(payloadBase64.replace(/-/g, "+").replace(/_/g, "/")));
+      userEmail = decodedPayload.email || "";
+      userName = decodedPayload.name || "";
+      userPicture = decodedPayload.picture || "";
+    } catch (e) {}
+  }
+
+  if (!userEmail) {
+    try {
+      const userResp = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` }
+      });
+      const userData: any = await userResp.json();
+      userEmail = userData.email || "";
+      userName = userData.name || userName;
+      userPicture = userData.picture || userPicture;
+    } catch (e) {}
+  }
+
+  const finalDisplay = userEmail ? (userName ? `${userName} (${userEmail})` : userEmail) : "Google Ads User";
+
+  const sessionPayload = {
+    access_token: tokenData.access_token,
+    refresh_token: tokenData.refresh_token || "",
+    email: userEmail || finalDisplay,
+    name: userName,
+    display: finalDisplay,
+    picture: userPicture,
+    expires_at: Date.now() + ((tokenData.expires_in || 3600) * 1000)
+  };
+
   const html = `
     <!DOCTYPE html>
     <html>
-    <head><title>Authenticating...</title></head>
+    <head><title>Authenticated</title></head>
     <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #fbf9f5;">
-      <h2>Authenticated as ${userEmail}</h2>
-      <p>Saving session and loading your Google Ads accounts...</p>
+      <h2>Authenticated as ${finalDisplay}</h2>
+      <p>Loading your Google Ads accounts & MCC hierarchy...</p>
       <script>
-        localStorage.setItem('***', JSON.stringify({
-          access_token: ${JSON.stringify(tokenData.access_token)},
-          refresh_token: ${JSON.stringify(tokenData.refresh_token || '')},
-          email: ${JSON.stringify(userEmail)},
-          expires_at: Date.now() + (${tokenData.expires_in || 3600} * 1000)
-        }));
+        localStorage.setItem('jev_ads_auth_session', JSON.stringify(${JSON.stringify(sessionPayload)}));
         window.location.href = '/';
       </script>
     </body>
@@ -68,6 +91,6 @@ export async function onRequestGet(context: any) {
   `;
 
   return new Response(html, {
-    headers: { "Content-Type": "text/html" }
+    headers: { "Content-Type": "text/html; charset=utf-8" }
   });
 }
