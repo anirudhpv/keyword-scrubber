@@ -56,6 +56,10 @@ export const LEXICON = {
   ],
 };
 
+// A term we could not classify needs this multiple of the click floor before we
+// will place a negative for it automatically.
+export const UNEXPLAINED_CLICK_MULTIPLIER = 2;
+
 // Groups that represent waste anywhere in the account, not just in one ad
 // group - these are the ones that belong on a shared list.
 export const UNIVERSAL_WASTE = new Set(["employment", "informational", "freebie", "support"]);
@@ -433,9 +437,24 @@ export function triage(searchTerms, negatives, { minClicks = 2, minCost = 0 } = 
   };
 }
 
-function firstEntry(map, fallback) {
-  for (const entry of map) return entry;
-  return fallback;
+/** First [key, value] of a Map, or [null, null] - never throws. */
+function first(map) {
+  for (const [k, v] of map) return [k, v];
+  return [null, null];
+}
+
+/**
+ * A negative we cannot address is not actionable, so send it to a human.
+ *
+ * search_term_view normally carries both IDs, but a row missing one would
+ * otherwise yield a recommendation pointing at nothing.
+ */
+function unplaceable(base, rec, level) {
+  base.action = "REVIEW";
+  base.reason = `Looks like waste ($${fmt2(rec.cost)} over ${rec.clicks} click(s), no `
+    + `conversions) but the report did not name the ${level} it ran in, so it `
+    + `cannot be placed automatically.`;
+  return base;
 }
 
 function recommend(rec, covered, intent, near, flatNegs, minClicks, minCost) {
@@ -503,22 +522,39 @@ function recommend(rec, covered, intent, near, flatNegs, minClicks, minCost) {
   base.intent_group = intentGroup;
   base.jev_abstain = Boolean(intent && intent.abstain);
 
-  // Ambiguous vocabulary, or buyer vocabulary with spend but no conversion -
-  // both need a human.
-  if (intentGroup === null || BUYER_GROUPS.has(intentGroup)) {
+  // Buyer vocabulary with spend but no conversion always needs a human - the
+  // fix is usually the landing page, not an exclusion.
+  if (BUYER_GROUPS.has(intentGroup)) {
     base.action = "REVIEW";
-    base.reason = BUYER_GROUPS.has(intentGroup)
-      ? `Commercial intent ("${intent.verdict}") but ${rec.clicks} click(s) `
-        + `and no conversions - check the landing page before excluding.`
-      : `No clear waste or buyer vocabulary matched; JEV abstained. `
-        + `$${fmt2(rec.cost)} spent over ${rec.clicks} click(s).`;
+    base.reason = `Commercial intent ("${intent.verdict}") but ${rec.clicks} click(s) `
+      + `and no conversions - check the landing page before excluding.`;
     return base;
   }
 
-  // Waste vocabulary - decide the level.
-  const token = intent.verdict ?? "";
   const nCampaigns = rec.campaigns.size;
   const nAdGroups = rec.ad_groups.size;
+
+  // No vocabulary matched. These are the account-specific terms a generic
+  // lexicon cannot classify - competitor names, adjacent verticals - and they
+  // are exactly what level-based placement is for. Excluding a term we could
+  // not explain needs firmer evidence than one we could, so require clicks
+  // well past the floor; below that a human should look.
+  const unexplained = intentGroup === null;
+  if (unexplained) {
+    const floor = Math.max(minClicks, 1) * UNEXPLAINED_CLICK_MULTIPLIER;
+    if (rec.clicks < floor) {
+      base.action = "REVIEW";
+      base.reason = `No waste or buyer vocabulary matched and only ${rec.clicks} click(s) `
+        + `($${fmt2(rec.cost)}) - not enough to place it automatically.`;
+      return base;
+    }
+  }
+
+  const token = intent ? (intent.verdict ?? "") : "";
+  const evidence = unexplained
+    ? `No vocabulary matched, but $${fmt2(rec.cost)} over ${rec.clicks} click(s) `
+      + `with no conversions.`
+    : "";
 
   if (UNIVERSAL_WASTE.has(intentGroup)) {
     const target = bestSharedList(near, flatNegs);
@@ -536,21 +572,30 @@ function recommend(rec, covered, intent, near, flatNegs, minClicks, minCost) {
     base.suggested_keyword = term;
     base.suggested_match_type = "EXACT";
     base.target = bestSharedList(near, flatNegs);
-    base.reason = `Wasting across ${nCampaigns} campaigns - exclude once at account level.`;
+    base.reason = (evidence ? `${evidence} ` : "")
+      + `Ran in ${nCampaigns} campaigns - exclude once at account level `
+      + `rather than repeating it per campaign.`;
   } else if (nAdGroups > 1) {
-    const [cid, cname] = firstEntry(rec.campaigns, ["", ""]);
+    const [cid, cname] = first(rec.campaigns);
+    if (!cid) return unplaceable(base, rec, "campaign");
     base.action = "ADD_CAMPAIGN_NEGATIVE";
     base.suggested_keyword = term;
     base.suggested_match_type = "EXACT";
     base.target = { level: "CAMPAIGN", container_id: cid, container_name: cname };
-    base.reason = `Wasting in ${nAdGroups} ad groups within "${cname}".`;
+    base.reason = (evidence ? `${evidence} ` : "")
+      + `Confined to "${cname}" but spread across ${nAdGroups} ad groups - `
+      + `exclude at campaign level so every ad group is covered.`;
   } else {
-    const [agId, ag] = firstEntry(rec.ad_groups, ["", { name: "" }]);
+    let [agId, ag] = first(rec.ad_groups);
+    if (!agId) return unplaceable(base, rec, "ad group");
+    ag = ag || { name: "" };
     base.action = "ADD_ADGROUP_NEGATIVE";
     base.suggested_keyword = term;
     base.suggested_match_type = "EXACT";
     base.target = { level: "AD_GROUP", container_id: agId, container_name: ag.name };
-    base.reason = `Isolated to "${ag.name}" - sculpt locally so other ad groups keep the traffic.`;
+    base.reason = (evidence ? `${evidence} ` : "")
+      + `Isolated to "${ag.name}" - sculpt locally so other ad groups `
+      + `keep this traffic.`;
   }
 
   return base;
