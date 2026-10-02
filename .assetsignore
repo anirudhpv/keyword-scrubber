@@ -1,10 +1,10 @@
-_worker.js
-src/
-venv/
-.git/
-.github/
-google_ads_service.py
-api.py
-cli_pipeline.py
-generate_refresh_token.py
-*.md
+# Cloudflare uploads [assets] directory = "." — the WHOLE project — as public
+# static files. Nothing is excluded implicitly, so this is an allowlist: ignore
+# everything, then re-admit only what the browser is actually meant to fetch.
+#
+# A denylist here was one forgotten line away from publishing .env, which holds
+# GOOGLE_ADS_CLIENT_SECRET. Do not convert this back to a denylist.
+/*
+
+# The single-page app, and nothing else.
+!/index.html
