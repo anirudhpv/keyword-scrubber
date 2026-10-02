@@ -284,6 +284,30 @@ def triage(
     }
 
 
+def _first(d: Dict[str, Any]) -> Tuple[Optional[str], Any]:
+    """First (key, value) of a dict, or (None, None) - never raises."""
+    for k, v in d.items():
+        return k, v
+    return None, None
+
+
+def _unplaceable(base: Dict[str, Any], rec: Dict[str, Any], level: str) -> Dict[str, Any]:
+    """A negative we cannot address is not actionable, so send it to a human.
+
+    search_term_view normally carries both IDs, but a row missing one would
+    otherwise yield a recommendation pointing at nothing.
+    """
+    base.update({
+        "action": "REVIEW",
+        "reason": (
+            f'Looks like waste (${rec["cost"]:.2f} over {rec["clicks"]} click(s), no '
+            f'conversions) but the report did not name the {level} it ran in, so it '
+            f'cannot be placed automatically.'
+        ),
+    })
+    return base
+
+
 def _recommend(rec, covered, intent, near, flat_negs, min_clicks, min_cost) -> Dict[str, Any]:
     term = rec["term"]
     base = {
@@ -418,7 +442,9 @@ def _recommend(rec, covered, intent, near, flat_negs, min_clicks, min_cost) -> D
                         f'rather than repeating it per campaign.',
         })
     elif n_ad_groups > 1:
-        cid, cname = next(iter(rec["campaigns"].items()))
+        cid, cname = _first(rec["campaigns"])
+        if not cid:
+            return _unplaceable(base, rec, "campaign")
         base.update({
             "action": "ADD_CAMPAIGN_NEGATIVE",
             "suggested_keyword": term,
@@ -429,7 +455,10 @@ def _recommend(rec, covered, intent, near, flat_negs, min_clicks, min_cost) -> D
                         f'exclude at campaign level so every ad group is covered.',
         })
     else:
-        ag_id, ag = next(iter(rec["ad_groups"].items()))
+        ag_id, ag = _first(rec["ad_groups"])
+        if not ag_id:
+            return _unplaceable(base, rec, "ad group")
+        ag = ag or {"name": ""}
         base.update({
             "action": "ADD_ADGROUP_NEGATIVE",
             "suggested_keyword": term,
