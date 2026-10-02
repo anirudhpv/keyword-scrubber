@@ -99,6 +99,37 @@ def health():
     }
 
 
+def _oauth_host_problem(host: str) -> Optional[str]:
+    """Google only accepts localhost/127.0.0.1 redirect URIs over plain HTTP.
+
+    Browsing this app by LAN IP or .local name produces a confusing
+    "device_id and device_name are required for private IP" 400 from Google,
+    so catch it here and say what to do instead.
+    """
+    hostname = host.split(":")[0].lower()
+    if hostname in ("localhost", "127.0.0.1", "::1", "[::1]"):
+        return None
+    private = (
+        hostname.startswith(("10.", "192.168.", "169.254."))
+        or any(hostname.startswith(f"172.{n}.") for n in range(16, 32))
+    )
+    if private:
+        return (
+            f"Google will not accept '{hostname}' as an OAuth redirect host - private "
+            f"IP addresses are rejected with 'device_id and device_name are required "
+            f"for private IP'. Reach this app over an SSH tunnel instead:\n\n"
+            f"    ssh -L 8090:localhost:8090 {os.getenv('USER', 'apv')}@{hostname}\n\n"
+            f"then open http://localhost:8090 in your browser."
+        )
+    if hostname.endswith(".local"):
+        return (
+            f"Google will not accept the mDNS name '{hostname}' as an OAuth redirect "
+            f"host. Use an SSH tunnel and browse http://localhost:8090 instead:\n\n"
+            f"    ssh -L 8090:localhost:8090 {os.getenv('USER', 'apv')}@{hostname}"
+        )
+    return None
+
+
 @app.get("/api/auth/login")
 def auth_login(request: Request):
     client_id, _ = get_oauth_config()
@@ -107,6 +138,18 @@ def auth_login(request: Request):
             status_code=500,
             detail="GOOGLE_ADS_CLIENT_ID is not set in the environment or .env",
         )
+
+    problem = _oauth_host_problem(request.headers.get("host", ""))
+    if problem:
+        return HTMLResponse(
+            "<body style=\"font-family:system-ui;max-width:640px;margin:60px auto;"
+            "padding:0 20px;color:#181715\">"
+            "<h2 style=\"color:#991b1b\">This host can't complete Google sign-in</h2>"
+            f"<pre style=\"white-space:pre-wrap;background:#f4f0e6;padding:16px;"
+            f"border-radius:8px;line-height:1.6\">{problem}</pre></body>",
+            status_code=400,
+        )
+
     redirect_uri = f"{str(request.base_url).rstrip('/')}/api/auth/callback"
     params = urllib.parse.urlencode({
         "client_id": client_id,
