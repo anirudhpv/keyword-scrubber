@@ -6,9 +6,13 @@ no google-ads.yaml, no service credentials on disk.
 """
 import base64
 import json
+import logging
 import os
 import time
+import traceback
 import urllib.parse
+import uuid
+from logging.handlers import RotatingFileHandler
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -29,8 +33,42 @@ except ImportError:
     pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_PATH = os.path.join(BASE_DIR, "jevads.log")
+
+# journald is not persisting on this host (/var/log/journal is empty), so an
+# unhandled exception left no trace at all. Log to a file we control instead.
+log = logging.getLogger("jevads")
+log.setLevel(logging.INFO)
+if not log.handlers:
+    _fh = RotatingFileHandler(LOG_PATH, maxBytes=2_000_000, backupCount=3)
+    _fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    log.addHandler(_fh)
+    log.addHandler(logging.StreamHandler())
 
 app = FastAPI(title="JevAds - Negative Keyword Architecture & Search Term Triage")
+
+
+@app.exception_handler(Exception)
+async def unhandled(request: Request, exc: Exception):
+    """Never let an exception reach the browser as an opaque 500.
+
+    FastAPI's default returns a plain-text body, which the frontend cannot parse
+    as JSON - that is what produced the useless "Load failed: {}" toast.
+    """
+    ref = uuid.uuid4().hex[:8]
+    log.error(
+        "[%s] %s %s -> %s: %s\n%s",
+        ref, request.method, request.url.path,
+        type(exc).__name__, exc, traceback.format_exc(),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": {
+            "error": f"{type(exc).__name__}: {exc}"[:400],
+            "ref": ref,
+            "hint": f"Full traceback in {LOG_PATH} (search for {ref})",
+        }},
+    )
 
 # Bearer tokens travel in the request body, not cookies, so credentialed
 # requests are not needed - and "*" with credentials is rejected by browsers.

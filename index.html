@@ -124,12 +124,20 @@ function toast(msg,isErr){
 
 async function post(url,body){
   const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  const d=await r.json().catch(()=>({}));
+  const raw=await r.text();
+  let d=null; try{ d=JSON.parse(raw); }catch(e){}
   if(!r.ok){
-    const det=d.detail;
-    throw new Error(typeof det==="string"?det:(det&&det.error)||JSON.stringify(det||d).slice(0,300));
+    const det=d&&d.detail;
+    let msg;
+    if(typeof det==="string") msg=det;
+    else if(det&&det.error) msg=det.error+(det.ref?` [ref ${det.ref}]`:"");
+    else if(Array.isArray(det)&&det.length) msg=det.map(x=>`${(x.loc||[]).slice(-1)}: ${x.msg}`).join("; ");
+    // Never surface "{}" — fall back to the status line and the raw body.
+    else msg=`HTTP ${r.status} ${r.statusText||""}`.trim()+(raw?` — ${raw.slice(0,200)}`:"");
+    const err=new Error(msg); err.status=r.status; err.ref=det&&det.ref;
+    throw err;
   }
-  return d;
+  return d||{};
 }
 
 // ---------- session ----------

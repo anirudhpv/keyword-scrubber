@@ -40,6 +40,23 @@ def _headers(access_token: str, login_customer_id: str = "") -> Dict[str, str]:
     return headers
 
 
+def g(row: Any, *path: str, default: Any = "") -> Any:
+    """Walk a nested GAQL result safely.
+
+    Google serialises protobuf to JSON with default-valued fields omitted, so a
+    nested object can be missing entirely on a row that is otherwise fine.
+    Indexing straight into it raises KeyError and takes down the whole request.
+    """
+    cur = row
+    for key in path:
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(key)
+        if cur is None:
+            return default
+    return cur
+
+
 def _extract_error(body: Any) -> str:
     """Pull the most useful human-readable message out of an error body."""
     if isinstance(body, list) and body:
@@ -197,12 +214,12 @@ def fetch_structure(access_token: str, cid: str, login_cid: str = "") -> Dict[st
     """, login_cid)
 
     campaigns = [{
-        "id": str(r["campaign"]["id"]),
-        "name": r["campaign"].get("name", "Unnamed campaign"),
-        "status": r["campaign"].get("status", "UNKNOWN"),
-        "type": r["campaign"].get("advertisingChannelType", "UNKNOWN"),
-        "budget_daily": round((r.get("campaignBudget", {}).get("amountMicros") or 0) / 1_000_000, 2),
-    } for r in camp_rows]
+        "id": str(g(r, "campaign", "id")),
+        "name": g(r, "campaign", "name", default="Unnamed campaign"),
+        "status": g(r, "campaign", "status", default="UNKNOWN"),
+        "type": g(r, "campaign", "advertisingChannelType", default="UNKNOWN"),
+        "budget_daily": round((g(r, "campaignBudget", "amountMicros", default=0) or 0) / 1_000_000, 2),
+    } for r in camp_rows if g(r, "campaign", "id")]
 
     ag_rows = search(access_token, cid, """
         SELECT ad_group.id, ad_group.name, ad_group.status,
@@ -213,12 +230,12 @@ def fetch_structure(access_token: str, cid: str, login_cid: str = "") -> Dict[st
     """, login_cid)
 
     ad_groups = [{
-        "id": str(r["adGroup"]["id"]),
-        "name": r["adGroup"].get("name", "Unnamed ad group"),
-        "status": r["adGroup"].get("status", "UNKNOWN"),
-        "campaign_id": str(r["campaign"]["id"]),
-        "campaign_name": r["campaign"].get("name", ""),
-    } for r in ag_rows]
+        "id": str(g(r, "adGroup", "id")),
+        "name": g(r, "adGroup", "name", default="Unnamed ad group"),
+        "status": g(r, "adGroup", "status", default="UNKNOWN"),
+        "campaign_id": str(g(r, "campaign", "id")),
+        "campaign_name": g(r, "campaign", "name"),
+    } for r in ag_rows if g(r, "adGroup", "id")]
 
     return {"campaigns": campaigns, "ad_groups": ad_groups}
 
@@ -239,12 +256,13 @@ def fetch_negatives(access_token: str, cid: str, login_cid: str = "") -> Dict[st
 
     shared_lists: Dict[str, Dict[str, Any]] = {}
     for r in set_rows:
-        s = r["sharedSet"]
-        sid = str(s["id"])
+        sid = str(g(r, "sharedSet", "id"))
+        if not sid:
+            continue
         shared_lists[sid] = {
             "id": sid,
-            "name": s.get("name", "Shared negative list"),
-            "member_count": int(s.get("memberCount") or 0),
+            "name": g(r, "sharedSet", "name", default="Shared negative list"),
+            "member_count": int(g(r, "sharedSet", "memberCount", default=0) or 0),
             "keywords": [],
             "applied_campaigns": [],
         }
@@ -278,8 +296,8 @@ def fetch_negatives(access_token: str, cid: str, login_cid: str = "") -> Dict[st
         sid = str(r.get("sharedSet", {}).get("id", ""))
         if sid in shared_lists:
             shared_lists[sid]["applied_campaigns"].append({
-                "campaign_id": str(r["campaign"]["id"]),
-                "campaign_name": r["campaign"].get("name", ""),
+                "campaign_id": str(g(r, "campaign", "id")),
+                "campaign_name": g(r, "campaign", "name"),
             })
 
     # 4. Campaign-level negatives.
@@ -295,11 +313,11 @@ def fetch_negatives(access_token: str, cid: str, login_cid: str = "") -> Dict[st
     """, login_cid)
 
     campaign_negatives = [{
-        "campaign_id": str(r["campaign"]["id"]),
-        "campaign_name": r["campaign"].get("name", ""),
+        "campaign_id": str(g(r, "campaign", "id")),
+        "campaign_name": g(r, "campaign", "name"),
         "text": r.get("campaignCriterion", {}).get("keyword", {}).get("text", ""),
         "match_type": r.get("campaignCriterion", {}).get("keyword", {}).get("matchType", "BROAD"),
-    } for r in camp_neg_rows]
+    } for r in camp_neg_rows if g(r, "campaignCriterion", "keyword", "text")]
 
     # 5. Ad group-level negatives (traffic sculpting).
     ag_neg_rows = search(access_token, cid, f"""
@@ -314,13 +332,13 @@ def fetch_negatives(access_token: str, cid: str, login_cid: str = "") -> Dict[st
     """, login_cid)
 
     adgroup_negatives = [{
-        "campaign_id": str(r["campaign"]["id"]),
-        "campaign_name": r["campaign"].get("name", ""),
-        "ad_group_id": str(r["adGroup"]["id"]),
-        "ad_group_name": r["adGroup"].get("name", ""),
+        "campaign_id": str(g(r, "campaign", "id")),
+        "campaign_name": g(r, "campaign", "name"),
+        "ad_group_id": str(g(r, "adGroup", "id")),
+        "ad_group_name": g(r, "adGroup", "name"),
         "text": r.get("adGroupCriterion", {}).get("keyword", {}).get("text", ""),
         "match_type": r.get("adGroupCriterion", {}).get("keyword", {}).get("matchType", "BROAD"),
-    } for r in ag_neg_rows]
+    } for r in ag_neg_rows if g(r, "adGroupCriterion", "keyword", "text")]
 
     lists = sorted(shared_lists.values(), key=lambda s: s["name"].lower())
     total = (
@@ -361,10 +379,10 @@ def fetch_search_terms(
         terms.append({
             "term": r.get("searchTermView", {}).get("searchTerm", ""),
             "status": r.get("searchTermView", {}).get("status", "NONE"),
-            "campaign_id": str(r["campaign"]["id"]),
-            "campaign_name": r["campaign"].get("name", ""),
-            "ad_group_id": str(r["adGroup"]["id"]),
-            "ad_group_name": r["adGroup"].get("name", ""),
+            "campaign_id": str(g(r, "campaign", "id")),
+            "campaign_name": g(r, "campaign", "name"),
+            "ad_group_id": str(g(r, "adGroup", "id")),
+            "ad_group_name": g(r, "adGroup", "name"),
             "impressions": int(m.get("impressions") or 0),
             "clicks": int(m.get("clicks") or 0),
             "cost": round((m.get("costMicros") or 0) / 1_000_000, 2),

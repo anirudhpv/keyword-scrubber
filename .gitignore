@@ -4,3 +4,4 @@ __pycache__/
 .env
 output/
 google-ads.yaml
+jevads.log
