@@ -112,11 +112,6 @@ jev-ads-api.service   port 8090   this backend
 
 ## Known gaps
 
-- **`src/worker.js` is behind the Python backend.** It predates `/api/negatives`
-  and `/api/triage`, and it cannot reach JEV on localhost, so it cannot do triage
-  at all. Either expose JEV publicly, port the heuristics into the Worker, or drop
-  the Cloudflare path.
-- **Nothing mutates Google Ads yet.** Triage produces recommendations and a TSV
-  export; applying them still happens by hand or via Google Ads Editor.
-- **The intent lexicon in `jev_triage.py` is generic.** It should be tuned per
-  industry; competitor terms in particular are deliberately not hardcoded.
+Tracked in [ROADMAP.md](ROADMAP.md). In short: the account picker is flat rather
+than showing the MCC hierarchy, nothing writes back to Google Ads yet, the intent
+lexicon is generic, and `src/worker.js` is stale.
