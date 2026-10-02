@@ -57,6 +57,27 @@ def g(row: Any, *path: str, default: Any = "") -> Any:
     return cur
 
 
+def num(value: Any, default: float = 0.0) -> float:
+    """Coerce a GAQL numeric field to a float.
+
+    Protobuf JSON encodes int64/uint64 as *strings* (amountMicros, costMicros,
+    impressions, clicks all arrive quoted), so arithmetic on the raw value
+    raises TypeError. Doubles like metrics.conversions come back as real
+    numbers, hence accepting both.
+    """
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def micros(value: Any) -> float:
+    """Convert a micros field to currency units, rounded to cents."""
+    return round(num(value) / 1_000_000, 2)
+
+
 def _extract_error(body: Any) -> str:
     """Pull the most useful human-readable message out of an error body."""
     if isinstance(body, list) and body:
@@ -218,7 +239,7 @@ def fetch_structure(access_token: str, cid: str, login_cid: str = "") -> Dict[st
         "name": g(r, "campaign", "name", default="Unnamed campaign"),
         "status": g(r, "campaign", "status", default="UNKNOWN"),
         "type": g(r, "campaign", "advertisingChannelType", default="UNKNOWN"),
-        "budget_daily": round((g(r, "campaignBudget", "amountMicros", default=0) or 0) / 1_000_000, 2),
+        "budget_daily": micros(g(r, "campaignBudget", "amountMicros", default=0)),
     } for r in camp_rows if g(r, "campaign", "id")]
 
     ag_rows = search(access_token, cid, """
@@ -262,7 +283,7 @@ def fetch_negatives(access_token: str, cid: str, login_cid: str = "") -> Dict[st
         shared_lists[sid] = {
             "id": sid,
             "name": g(r, "sharedSet", "name", default="Shared negative list"),
-            "member_count": int(g(r, "sharedSet", "memberCount", default=0) or 0),
+            "member_count": int(num(g(r, "sharedSet", "memberCount", default=0))),
             "keywords": [],
             "applied_campaigns": [],
         }
@@ -383,10 +404,10 @@ def fetch_search_terms(
             "campaign_name": g(r, "campaign", "name"),
             "ad_group_id": str(g(r, "adGroup", "id")),
             "ad_group_name": g(r, "adGroup", "name"),
-            "impressions": int(m.get("impressions") or 0),
-            "clicks": int(m.get("clicks") or 0),
-            "cost": round((m.get("costMicros") or 0) / 1_000_000, 2),
-            "conversions": round(float(m.get("conversions") or 0), 2),
-            "conv_value": round(float(m.get("conversionsValue") or 0), 2),
+            "impressions": int(num(m.get("impressions"))),
+            "clicks": int(num(m.get("clicks"))),
+            "cost": micros(m.get("costMicros")),
+            "conversions": round(num(m.get("conversions")), 2),
+            "conv_value": round(num(m.get("conversionsValue")), 2),
         })
     return terms
