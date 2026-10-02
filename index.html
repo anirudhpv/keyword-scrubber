@@ -20,8 +20,12 @@
   --blue:#1e40af; --blue-lt:#eff6ff; --blue-bd:#bfdbfe;
   --purple:#5b21b6; --purple-lt:#f5f3ff; --purple-bd:#ddd6fe;
   --bd:#e7e2d8; --bd-2:#d5cebf;
-  --serif:'Fraunces',Georgia,serif; --sans:'Plus Jakarta Sans',system-ui,sans-serif;
-  --mono:'JetBrains Mono',ui-monospace,monospace;
+  /* Emoji families are named explicitly so the icons resolve on hosts whose
+     default stack has no emoji font (a bare Raspberry Pi OS install has none). */
+  --emoji:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji','Twemoji Mozilla';
+  --serif:'Fraunces',Georgia,var(--emoji),serif;
+  --sans:'Plus Jakarta Sans',system-ui,var(--emoji),sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,var(--emoji),monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg-page);color:var(--ink);font-size:14px;line-height:1.5}
@@ -37,6 +41,9 @@ body{font-family:var(--sans);background:var(--bg-page);color:var(--ink);font-siz
 .btn-primary{background:var(--green);color:#fff;border-color:var(--green)}
 .btn-primary:hover{background:#15362763;background:#153627}
 .sel,.inp{font-family:var(--sans);font-size:.8rem;font-weight:600;padding:7px 10px;border-radius:7px;border:1px solid var(--bd-2);background:var(--bg-surface);color:var(--ink);min-width:120px}
+.inp-group{display:inline-flex;align-items:center;gap:7px;padding:0 10px;border-radius:7px;border:1px solid var(--bd-2);background:var(--bg-surface)}
+.inp-group span{font-size:.68rem;font-weight:800;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.inp-group input{width:48px;border:none;background:none;outline:none;font-family:var(--sans);font-size:.8rem;font-weight:700;color:var(--ink);padding:7px 0}
 .bar{background:var(--bg-subtle);border-bottom:1px solid var(--bd);padding:10px 22px}
 .bar-in{max-width:1600px;margin:0 auto;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
 .chip{font-size:.68rem;font-weight:800;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
@@ -78,8 +85,10 @@ tr:hover td{background:#fcfbf8}
 .why{font-size:.74rem;color:var(--ink-2);margin-top:3px;line-height:1.45;max-width:560px}
 .empty{text-align:center;padding:70px 20px;color:var(--ink-3)}
 .empty h3{font-family:var(--serif);font-size:1.35rem;color:var(--ink);margin:10px 0 6px}
-.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(140%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;font-weight:600;font-size:.82rem;transition:.25s;z-index:200;max-width:80vw}
-.toast.on{transform:translateX(-50%) translateY(0)}
+/* Hidden state must clear the bottom offset too - translateY alone leaves an
+   empty toast peeking above the fold, because 140% of a short box is < 22px. */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(calc(100% + 32px));opacity:0;visibility:hidden;background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;font-weight:600;font-size:.82rem;transition:transform .25s,opacity .25s,visibility .25s;z-index:200;max-width:80vw}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible}
 .toast.err{background:var(--red)}
 .pill{font-size:.68rem;font-weight:700;color:var(--ink-3);background:var(--bg-subtle);border:1px solid var(--bd);padding:2px 7px;border-radius:20px}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--bd-2);border-top-color:var(--green);border-radius:50%;animation:sp .7s linear infinite}
@@ -380,8 +389,10 @@ function App(){
       <select className="sel" value={days} onChange={e=>setDays(e.target.value)}>
         {[7,14,30,60,90].map(d=><option key={d} value={d}>Last {d} days</option>)}
       </select>
-      <input className="inp" style={{minWidth:130}} type="number" min="0" value={minClicks}
-        onChange={e=>setMinClicks(e.target.value)} title="Minimum clicks before a term is actionable"/>
+      <label className="inp-group" title="A term needs at least this many clicks before it is treated as actionable">
+        <span>min clicks</span>
+        <input type="number" min="0" value={minClicks} onChange={e=>setMinClicks(e.target.value)}/>
+      </label>
       <button className="btn btn-primary" onClick={load} disabled={busy||!cid}>
         {busy?<><span className="spin"></span> Loading…</>:"Analyse account"}</button>
       {data&&<input className="inp" style={{minWidth:210,marginLeft:"auto"}} placeholder="Filter keywords / terms…"
