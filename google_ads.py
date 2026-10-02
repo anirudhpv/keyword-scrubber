@@ -57,6 +57,28 @@ def g(row: Any, *path: str, default: Any = "") -> Any:
     return cur
 
 
+# Google only defines LAST_7_DAYS, LAST_14_DAYS and LAST_30_DAYS. There is no
+# LAST_60_DAYS or LAST_90_DAYS, so anything else needs an explicit range or the
+# query is rejected.
+DURING_CONSTANTS = {7, 14, 30}
+
+
+def date_predicate(days: int) -> str:
+    """A `segments.date` predicate covering the last N days, excluding today.
+
+    Matches Google's own LAST_N_DAYS semantics ("not including today"). The
+    explicit range is computed from this machine's date, which can differ by a
+    day from the account's timezone - acceptable for a reporting window.
+    """
+    days = max(1, int(days))
+    if days in DURING_CONSTANTS:
+        return f"segments.date DURING LAST_{days}_DAYS"
+    from datetime import date, timedelta
+    end = date.today() - timedelta(days=1)
+    start = end - timedelta(days=days - 1)
+    return f"segments.date BETWEEN '{start.isoformat()}' AND '{end.isoformat()}'"
+
+
 def num(value: Any, default: float = 0.0) -> float:
     """Coerce a GAQL numeric field to a float.
 
@@ -380,6 +402,7 @@ def fetch_search_terms(
     access_token: str, cid: str, days: int = 30, login_cid: str = "", limit: int = 2000
 ) -> List[Dict[str, Any]]:
     """Search terms with the campaign/ad group IDs triage needs for placement."""
+    date_pred = date_predicate(days)
     rows = search(access_token, cid, f"""
         SELECT search_term_view.search_term,
                search_term_view.status,
@@ -389,7 +412,7 @@ def fetch_search_terms(
                metrics.cost_micros, metrics.conversions,
                metrics.conversions_value
         FROM search_term_view
-        WHERE segments.date DURING LAST_{days}_DAYS
+        WHERE {date_pred}
         ORDER BY metrics.cost_micros DESC
         LIMIT {min(limit, PAGE_LIMIT)}
     """, login_cid)
