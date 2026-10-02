@@ -94,6 +94,35 @@ tr:hover td{background:#fcfbf8}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--bd-2);border-top-color:var(--green);border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .bare{background:none;border:none;cursor:pointer;font:inherit;color:inherit;padding:0}
+.canvas-wrap{border:1px solid var(--bd);border-radius:11px;background:var(--bg-surface);overflow:hidden}
+.canvas-tools{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid var(--bd);background:var(--bg-subtle);flex-wrap:wrap}
+.canvas-tools .btn{padding:4px 9px;font-size:.74rem}
+.zoom-pct{font-size:.7rem;font-weight:800;color:var(--ink-3);min-width:38px;text-align:center}
+.canvas{position:relative;height:min(68vh,640px);overflow:hidden;cursor:grab;
+  background-image:radial-gradient(var(--bd) 1px,transparent 1px);background-size:22px 22px}
+.canvas:active{cursor:grabbing}
+.canvas-inner{position:absolute;transform-origin:0 0;will-change:transform}
+.edges{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.nd{position:absolute;border:1px solid var(--bd-2);border-radius:9px;background:var(--bg-surface);
+  padding:8px 11px;box-shadow:0 1px 2px rgba(0,0,0,.04);user-select:none}
+.nd.on{border-color:var(--green);box-shadow:0 0 0 2px var(--green-bd)}
+.nd-k{font-size:.6rem;font-weight:800;color:var(--ink-4);text-transform:uppercase;letter-spacing:.05em;
+  display:flex;align-items:center;gap:5px}
+.nd-t{font-weight:700;font-size:.86rem;margin:2px 0 5px;line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nd-m{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.nd-m .pill{font-size:.63rem;padding:1px 6px}
+.nd-m .pill.red{background:var(--red-lt);color:var(--red);border-color:var(--red-bd)}
+.nd-m .pill.amber{background:var(--amber-lt);color:var(--amber);border-color:var(--amber-bd)}
+.nd-m .tog{cursor:pointer;font-family:inherit}
+.nd-m .tog:hover{background:var(--bg-muted)}
+.nd-acct{background:var(--green);border-color:var(--green);color:#fff}
+.nd-acct .nd-k{color:rgba(255,255,255,.72)}
+.nd-acct .pill{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.28);color:#fff}
+.nd-camp{cursor:pointer}
+.nd-ag{cursor:pointer;background:#fcfbf8}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot.live{background:#16a34a} .dot.off{background:var(--ink-4)}
 .section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 10px}
 .filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .filt{display:inline-flex;align-items:center;gap:6px;padding:0 9px;border-radius:7px;border:1px solid var(--bd-2);background:var(--bg-surface)}
@@ -231,13 +260,213 @@ async function ensureFresh(s){
 }
 
 // ---------- negatives tab ----------
-function NegativesTab({data,query}){
+// Shared by the structure and negatives views so a filter choice carries
+// across tabs instead of resetting.
+function FilterBar({filters,set,campStatuses,agStatuses,hiddenCamps,hiddenAgs,showEmptyToggle=true}){
+  const {campStatus,agStatus,hideEmpty}=filters;
+  return (<div className="filters">
+    <label className="filt">
+      <span>Campaigns</span>
+      <select value={campStatus} onChange={e=>set({campStatus:e.target.value})}>
+        <option value="ENABLED">Active only</option>
+        {campStatuses.filter(s=>s!=="ENABLED").map(s=><option key={s} value={s}>{s.toLowerCase()} only</option>)}
+        <option value="ALL">All statuses</option>
+      </select>
+    </label>
+    <label className="filt">
+      <span>Ad groups</span>
+      <select value={agStatus} onChange={e=>set({agStatus:e.target.value})}>
+        <option value="ENABLED">Active only</option>
+        {agStatuses.filter(s=>s!=="ENABLED").map(s=><option key={s} value={s}>{s.toLowerCase()} only</option>)}
+        <option value="ALL">All statuses</option>
+      </select>
+    </label>
+    {showEmptyToggle&&(
+      <label className="filt chk" title="Hide campaigns and ad groups that have no negative keywords">
+        <input type="checkbox" checked={hideEmpty} onChange={e=>set({hideEmpty:e.target.checked})}/>
+        <span>With negatives only</span>
+      </label>)}
+    {(hiddenCamps>0||hiddenAgs>0)&&(
+      <span className="filt-note">
+        {[hiddenCamps&&`${hiddenCamps} campaign${hiddenCamps>1?"s":""}`,
+          hiddenAgs&&`${hiddenAgs} ad group${hiddenAgs>1?"s":""}`].filter(Boolean).join(" · ")} hidden
+      </span>)}
+  </div>);
+}
+
+// ---------- account structure (read-only canvas tree) ----------
+const NODE_W={acct:230,camp:272,ag:244};
+const COL_X={acct:0,camp:360,ag:720};
+const ROW_H=70, GAP=26;
+
+function StructureTab({data,filters,setFilters,query}){
+  const {campStatus,agStatus}=filters;
+  const [collapsed,setCollapsed]=useState({});
+  const [sel,setSel]=useState(null);
+  const [view,setView]=useState({x:40,y:20,k:1});
+  const drag=React.useRef(null);
+  const statusOk=(s,want)=>want==="ALL"||(s||"").toUpperCase()===want;
+  const q=query.trim().toLowerCase();
+
+  const allCamps=data.campaigns||[], allAgs=data.ad_groups||[];
+  const campStatuses=useMemo(()=>[...new Set(allCamps.map(c=>(c.status||"").toUpperCase()))].filter(Boolean).sort(),[allCamps]);
+  const agStatuses=useMemo(()=>[...new Set(allAgs.map(a=>(a.status||"").toUpperCase()))].filter(Boolean).sort(),[allAgs]);
+
+  // Negative counts per entity, so each node can show what it carries.
+  const negCount=useMemo(()=>{
+    const camp={},ag={},listsFor={};
+    (data.campaign_negatives||[]).forEach(n=>camp[n.campaign_id]=(camp[n.campaign_id]||0)+1);
+    (data.adgroup_negatives||[]).forEach(n=>ag[n.ad_group_id]=(ag[n.ad_group_id]||0)+1);
+    (data.shared_lists||[]).forEach(l=>(l.applied_campaigns||[]).forEach(c=>{
+      (listsFor[c.campaign_id]=listsFor[c.campaign_id]||[]).push(l);
+    }));
+    return {camp,ag,listsFor};
+  },[data]);
+
+  // Tidy layout: place ad groups on sequential rows, centre each campaign on
+  // its children, then centre the account on the campaigns.
+  const {nodes,edges,height}=useMemo(()=>{
+    const camps=allCamps.filter(c=>statusOk(c.status,campStatus))
+      .filter(c=>!q||c.name.toLowerCase().includes(q));
+    const byCamp={};
+    allAgs.filter(a=>statusOk(a.status,agStatus)).forEach(a=>{
+      (byCamp[a.campaign_id]=byCamp[a.campaign_id]||[]).push(a);
+    });
+
+    const nodes=[],edges=[];
+    let row=0;
+    const campNodes=[];
+    camps.forEach(c=>{
+      const kids=collapsed[c.id]?[]:(byCamp[c.id]||[]);
+      const startRow=row;
+      const agNodes=kids.map(a=>{
+        const n={kind:"ag",id:a.id,data:a,x:COL_X.ag,y:row*(ROW_H+GAP),w:NODE_W.ag};
+        row++; return n;
+      });
+      if(!agNodes.length) row++;                       // leaf campaign still takes a row
+      const top=startRow*(ROW_H+GAP);
+      const bottom=(row-1)*(ROW_H+GAP);
+      const cy=(top+bottom)/2;
+      const cNode={kind:"camp",id:c.id,data:c,x:COL_X.camp,y:cy,w:NODE_W.camp,
+                   childCount:(byCamp[c.id]||[]).length};
+      campNodes.push(cNode); nodes.push(cNode);
+      agNodes.forEach(n=>{ nodes.push(n); edges.push([cNode,n]); });
+    });
+
+    const ay=campNodes.length?(campNodes[0].y+campNodes[campNodes.length-1].y)/2:0;
+    const aNode={kind:"acct",id:"__acct",data:{},x:COL_X.acct,y:ay,w:NODE_W.acct};
+    nodes.push(aNode);
+    campNodes.forEach(n=>edges.push([aNode,n]));
+    return {nodes,edges,height:Math.max(row,1)*(ROW_H+GAP)+40};
+  },[allCamps,allAgs,campStatus,agStatus,collapsed,q]);
+
+  const onDown=e=>{ drag.current={sx:e.clientX,sy:e.clientY,ox:view.x,oy:view.y}; };
+  const onMove=e=>{
+    if(!drag.current) return;
+    setView(v=>({...v,x:drag.current.ox+(e.clientX-drag.current.sx),
+                       y:drag.current.oy+(e.clientY-drag.current.sy)}));
+  };
+  const onUp=()=>{ drag.current=null; };
+  const zoom=d=>setView(v=>({...v,k:Math.min(1.6,Math.max(0.35,+(v.k+d).toFixed(2)))}));
+  const reset=()=>setView({x:40,y:20,k:1});
+
+  const hiddenCamps=allCamps.length-allCamps.filter(c=>statusOk(c.status,campStatus)).length;
+  const hiddenAgs=allAgs.length-allAgs.filter(a=>statusOk(a.status,agStatus)).length;
+  const shownCamps=nodes.filter(n=>n.kind==="camp").length;
+  const shownAgs=nodes.filter(n=>n.kind==="ag").length;
+
+  return (<div>
+    <div className="section-head" style={{margin:"0 0 10px"}}>
+      <h3 style={{fontFamily:"var(--serif)",fontSize:"1.05rem",margin:0}}>
+        Account structure <span className="pill">{shownCamps} campaigns</span>
+        <span className="pill">{shownAgs} ad groups</span>
+      </h3>
+      <FilterBar filters={filters} set={setFilters} campStatuses={campStatuses} agStatuses={agStatuses}
+        hiddenCamps={hiddenCamps} hiddenAgs={hiddenAgs} showEmptyToggle={false}/>
+    </div>
+
+    <div className="canvas-wrap">
+      <div className="canvas-tools">
+        <button className="btn" onClick={()=>zoom(-0.15)} title="Zoom out">−</button>
+        <span className="zoom-pct">{Math.round(view.k*100)}%</span>
+        <button className="btn" onClick={()=>zoom(0.15)} title="Zoom in">+</button>
+        <button className="btn" onClick={reset}>Reset</button>
+        <button className="btn" onClick={()=>setCollapsed({})}>Expand all</button>
+        <button className="btn" onClick={()=>setCollapsed(Object.fromEntries(allCamps.map(c=>[c.id,true])))}>Collapse all</button>
+        <span className="filt-note">drag to pan · read-only</span>
+      </div>
+
+      <div className="canvas" onMouseDown={onDown} onMouseMove={onMove}
+           onMouseUp={onUp} onMouseLeave={onUp}>
+        <div className="canvas-inner" style={{transform:`translate(${view.x}px,${view.y}px) scale(${view.k})`}}>
+          <svg className="edges" width={COL_X.ag+NODE_W.ag+60} height={height}>
+            {edges.map(([p,c],i)=>{
+              const x1=p.x+p.w, y1=p.y+ROW_H/2, x2=c.x, y2=c.y+ROW_H/2;
+              const mx=(x1+x2)/2;
+              return <path key={i} d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
+                           fill="none" stroke="var(--bd-2)" strokeWidth="1.5"/>;
+            })}
+          </svg>
+          {nodes.map(n=>{
+            if(n.kind==="acct") return (
+              <div key={n.id} className="nd nd-acct" style={{left:n.x,top:n.y,width:n.w}}>
+                <div className="nd-k">Account</div>
+                <div className="nd-t">{data.customer_id||"Google Ads"}</div>
+                <div className="nd-m">
+                  <span className="pill">{(data.shared_lists||[]).length} shared lists</span>
+                  <span className="pill">{data.total_negatives} negatives</span>
+                </div>
+              </div>);
+            if(n.kind==="camp"){
+              const c=n.data, lists=negCount.listsFor[c.id]||[];
+              const isCol=!!collapsed[c.id];
+              return (
+                <div key={n.id} className={"nd nd-camp"+(sel===n.id?" on":"")}
+                     style={{left:n.x,top:n.y,width:n.w}} onClick={()=>setSel(sel===n.id?null:n.id)}>
+                  <div className="nd-k">
+                    Campaign · {c.type}
+                    <span className={"dot "+((c.status||"").toUpperCase()==="ENABLED"?"live":"off")}
+                          title={c.status}></span>
+                  </div>
+                  <div className="nd-t">{c.name}</div>
+                  <div className="nd-m">
+                    <span className="pill">{money(c.budget_daily)}/day</span>
+                    {negCount.camp[c.id]>0&&<span className="pill red">{negCount.camp[c.id]} negs</span>}
+                    {lists.length>0&&<span className="pill">{lists.length} lists</span>}
+                    {n.childCount>0&&(
+                      <button className="pill tog" onClick={e=>{e.stopPropagation();
+                        setCollapsed(p=>({...p,[c.id]:!p[c.id]}));}}>
+                        {isCol?"▸":"▾"} {n.childCount} ad group{n.childCount===1?"":"s"}
+                      </button>)}
+                  </div>
+                </div>);
+            }
+            const a=n.data;
+            return (
+              <div key={n.id} className={"nd nd-ag"+(sel===n.id?" on":"")}
+                   style={{left:n.x,top:n.y,width:n.w}} onClick={()=>setSel(sel===n.id?null:n.id)}>
+                <div className="nd-k">
+                  Ad group
+                  <span className={"dot "+((a.status||"").toUpperCase()==="ENABLED"?"live":"off")}
+                        title={a.status}></span>
+                </div>
+                <div className="nd-t">{a.name}</div>
+                <div className="nd-m">
+                  {negCount.ag[a.id]>0
+                    ? <span className="pill amber">{negCount.ag[a.id]} sculpting negs</span>
+                    : <span className="pill">no negatives</span>}
+                </div>
+              </div>);
+          })}
+        </div>
+      </div>
+    </div>
+  </div>);
+}
+
+function NegativesTab({data,query,filters,setFilters}){
   const [open,setOpen]=useState({});
-  // Default to live spend only — a paused campaign's negatives are not
-  // currently shaping any traffic, so they are noise on first look.
-  const [campStatus,setCampStatus]=useState("ENABLED");
-  const [agStatus,setAgStatus]=useState("ENABLED");
-  const [hideEmpty,setHideEmpty]=useState(false);
+  const {campStatus,agStatus,hideEmpty}=filters;
   const q=query.trim().toLowerCase();
   const tog=k=>setOpen(p=>({...p,[k]:!p[k]}));
   const match=t=>!q||(t||"").toLowerCase().includes(q);
@@ -298,33 +527,9 @@ function NegativesTab({data,query}){
       <h3 style={{fontFamily:"var(--serif)",fontSize:"1.05rem",margin:0}}>
         Campaigns <span className="pill">{camps.length}{hiddenCamps>0?` of ${allCamps.length}`:""}</span>
       </h3>
-      <div className="filters">
-        <label className="filt">
-          <span>Campaigns</span>
-          <select value={campStatus} onChange={e=>setCampStatus(e.target.value)}>
-            <option value="ENABLED">Active only</option>
-            {campStatuses.filter(s=>s!=="ENABLED").map(s=><option key={s} value={s}>{s.toLowerCase()} only</option>)}
-            <option value="ALL">All statuses</option>
-          </select>
-        </label>
-        <label className="filt">
-          <span>Ad groups</span>
-          <select value={agStatus} onChange={e=>setAgStatus(e.target.value)}>
-            <option value="ENABLED">Active only</option>
-            {agStatuses.filter(s=>s!=="ENABLED").map(s=><option key={s} value={s}>{s.toLowerCase()} only</option>)}
-            <option value="ALL">All statuses</option>
-          </select>
-        </label>
-        <label className="filt chk" title="Hide campaigns and ad groups that have no negative keywords">
-          <input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>
-          <span>With negatives only</span>
-        </label>
-        {(hiddenCamps>0||hiddenAgs>0)&&(
-          <span className="filt-note">
-            {[hiddenCamps&&`${hiddenCamps} campaign${hiddenCamps>1?"s":""}`,
-              hiddenAgs&&`${hiddenAgs} ad group${hiddenAgs>1?"s":""}`].filter(Boolean).join(" · ")} hidden
-          </span>)}
-      </div>
+      <FilterBar filters={filters} set={setFilters}
+        campStatuses={campStatuses} agStatuses={agStatuses}
+        hiddenCamps={hiddenCamps} hiddenAgs={hiddenAgs}/>
     </div>
     {camps.length===0&&<div className="card"><div className="card-b" style={{color:"var(--ink-3)"}}>
       No campaigns match this filter{allCamps.length?` — ${allCamps.length} exist at other statuses.`:"."}
@@ -455,10 +660,12 @@ function App(){
   const [cid,setCid]=useState("");
   const [days,setDays]=useState(30);
   const [minClicks,setMinClicks]=useState(2);
-  const [tab,setTab]=useState("negatives");
+  const [tab,setTab]=useState("structure");
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(false);
   const [query,setQuery]=useState("");
+  const [filters,setFiltersRaw]=useState({campStatus:"ENABLED",agStatus:"ENABLED",hideEmpty:false});
+  const setFilters=patch=>setFiltersRaw(f=>({...f,...patch}));
   const [refreshing,setRefreshing]=useState(false);
   const [cachedAt,setCachedAt]=useState(0);
 
@@ -616,14 +823,18 @@ function App(){
         </div>
 
         <div className="tabs">
+          <button className={"tab"+(tab==="structure"?" on":"")} onClick={()=>setTab("structure")}>
+            Account structure</button>
           <button className={"tab"+(tab==="negatives"?" on":"")} onClick={()=>setTab("negatives")}>
             Negative architecture</button>
           <button className={"tab"+(tab==="triage"?" on":"")} onClick={()=>setTab("triage")}>
             Search term triage {s&&<span className="pill" style={{marginLeft:5}}>{s.terms_analysed}</span>}</button>
         </div>
 
-        {tab==="negatives"
-          ? <NegativesTab data={data} query={query}/>
+        {tab==="structure"
+          ? <StructureTab data={data} filters={filters} setFilters={setFilters} query={query}/>
+          : tab==="negatives"
+          ? <NegativesTab data={data} query={query} filters={filters} setFilters={setFilters}/>
           : (data.recommendations
               ? <TriageTab data={data} query={query}/>
               : <div className="empty"><h3>Triage unavailable</h3>
