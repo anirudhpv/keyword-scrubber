@@ -48,6 +48,10 @@ LEXICON: Dict[str, List[str]] = {
     ],
 }
 
+# A term we could not classify needs this multiple of the click floor before we
+# will place a negative for it automatically.
+UNEXPLAINED_CLICK_MULTIPLIER = 2
+
 # Groups that represent waste anywhere in the account, not just in one ad
 # group - these are the ones that belong on a shared list.
 UNIVERSAL_WASTE = {"employment", "informational", "freebie", "support"}
@@ -346,26 +350,47 @@ def _recommend(rec, covered, intent, near, flat_negs, min_clicks, min_cost) -> D
     base["intent_group"] = intent_group
     base["jev_abstain"] = bool(intent and intent.get("abstain"))
 
-    # Ambiguous vocabulary, or buyer vocabulary with spend but no conversion -
-    # both need a human.
-    if intent_group is None or intent_group in BUYER_GROUPS:
+    # Buyer vocabulary with spend but no conversion always needs a human - the
+    # fix is usually the landing page, not an exclusion.
+    if intent_group in BUYER_GROUPS:
         base.update({
             "action": "REVIEW",
             "reason": (
                 f'Commercial intent ("{intent.get("verdict")}") but {rec["clicks"]} click(s) '
                 f'and no conversions - check the landing page before excluding.'
-                if intent_group in BUYER_GROUPS else
-                f'No clear waste or buyer vocabulary matched; JEV abstained. '
-                f'${rec["cost"]:.2f} spent over {rec["clicks"]} click(s).'
             ),
             "confidence": base["confidence"],
         })
         return base
 
-    # Waste vocabulary - decide the level.
-    token = intent.get("verdict", "")
     n_campaigns = len(rec["campaigns"])
     n_ad_groups = len(rec["ad_groups"])
+
+    # No vocabulary matched. These are the account-specific terms a generic
+    # lexicon cannot classify - competitor names, adjacent verticals - and they
+    # are exactly what level-based placement is for. Excluding a term we could
+    # not explain needs firmer evidence than one we could, so require clicks
+    # well past the floor; below that a human should look.
+    unexplained = intent_group is None
+    if unexplained:
+        floor = max(min_clicks, 1) * UNEXPLAINED_CLICK_MULTIPLIER
+        if rec["clicks"] < floor:
+            base.update({
+                "action": "REVIEW",
+                "reason": (
+                    f'No waste or buyer vocabulary matched and only {rec["clicks"]} click(s) '
+                    f'(${rec["cost"]:.2f}) - not enough to place it automatically.'
+                ),
+                "confidence": base["confidence"],
+            })
+            return base
+
+    token = intent.get("verdict", "") if intent else ""
+    evidence = (
+        f'No vocabulary matched, but ${rec["cost"]:.2f} over {rec["clicks"]} click(s) '
+        f'with no conversions.'
+        if unexplained else ""
+    )
 
     if intent_group in UNIVERSAL_WASTE:
         target = _best_shared_list(near, flat_negs)
@@ -388,7 +413,9 @@ def _recommend(rec, covered, intent, near, flat_negs, min_clicks, min_cost) -> D
             "suggested_keyword": term,
             "suggested_match_type": "EXACT",
             "target": _best_shared_list(near, flat_negs),
-            "reason": f'Wasting across {n_campaigns} campaigns - exclude once at account level.',
+            "reason": (f'{evidence} ' if evidence else '')
+                      + f'Ran in {n_campaigns} campaigns - exclude once at account level '
+                        f'rather than repeating it per campaign.',
         })
     elif n_ad_groups > 1:
         cid, cname = next(iter(rec["campaigns"].items()))
@@ -397,7 +424,9 @@ def _recommend(rec, covered, intent, near, flat_negs, min_clicks, min_cost) -> D
             "suggested_keyword": term,
             "suggested_match_type": "EXACT",
             "target": {"level": "CAMPAIGN", "container_id": cid, "container_name": cname},
-            "reason": f'Wasting in {n_ad_groups} ad groups within "{cname}".',
+            "reason": (f'{evidence} ' if evidence else '')
+                      + f'Confined to "{cname}" but spread across {n_ad_groups} ad groups - '
+                        f'exclude at campaign level so every ad group is covered.',
         })
     else:
         ag_id, ag = next(iter(rec["ad_groups"].items()))
@@ -407,7 +436,9 @@ def _recommend(rec, covered, intent, near, flat_negs, min_clicks, min_cost) -> D
             "suggested_match_type": "EXACT",
             "target": {"level": "AD_GROUP", "container_id": ag_id,
                        "container_name": ag["name"]},
-            "reason": f'Isolated to "{ag["name"]}" - sculpt locally so other ad groups keep the traffic.',
+            "reason": (f'{evidence} ' if evidence else '')
+                      + f'Isolated to "{ag["name"]}" - sculpt locally so other ad groups '
+                        f'keep this traffic.',
         })
 
     return base
