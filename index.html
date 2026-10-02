@@ -94,6 +94,9 @@ tr:hover td{background:#fcfbf8}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--bd-2);border-top-color:var(--green);border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .bare{background:none;border:none;cursor:pointer;font:inherit;color:inherit;padding:0}
+.cache-note{display:inline-flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;color:var(--ink-3);white-space:nowrap}
+.cache-note .link{color:var(--green);text-decoration:underline;font-weight:800}
+.cache-note .link:hover{color:var(--brand-forest,#2d6a4f)}
 </style>
 </head>
 <body>
@@ -142,6 +145,71 @@ async function post(url,body){
 
 // ---------- session ----------
 function loadSession(){ try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null;} }
+
+// ---------- account cache (stale-while-revalidate) ----------
+// Keyed per signed-in identity so switching Google accounts never shows the
+// previous user's list. Every access is guarded: localStorage throws in
+// private windows and when the origin's quota is full.
+const ACCT_PREFIX="jev_ads_accounts:";
+
+// The cache is bound to the Google identity that fetched it. Email is the only
+// stable identifier here - a display name can change and is not unique - so
+// without one we refuse to cache at all rather than risk showing one user the
+// accounts belonging to another.
+const identity=s=>((s&&s.email)||"").trim().toLowerCase();
+const acctKey=s=>ACCT_PREFIX+identity(s);
+
+function readAccounts(s){
+  const who=identity(s);
+  if(!who) return null;
+  try{
+    const raw=localStorage.getItem(acctKey(s));
+    if(!raw) return null;
+    const c=JSON.parse(raw);
+    // Belt and braces: the payload records its owner, so even a key collision
+    // or a hand-edited entry cannot surface another account's list.
+    if(!c||c.owner!==who||!Array.isArray(c.accounts)||!c.accounts.length) return null;
+    return c;
+  }catch(e){ return null; }
+}
+
+function writeAccounts(s,accounts){
+  const who=identity(s);
+  if(!who) return;
+  try{
+    localStorage.setItem(acctKey(s),JSON.stringify({owner:who,accounts,cached_at:Date.now()}));
+  }catch(e){ /* quota or private mode - the cache is an optimisation, not state */ }
+}
+
+function clearAccounts(s){
+  const who=identity(s);
+  try{ if(who) localStorage.removeItem(acctKey(s)); }catch(e){}
+}
+
+// Drop every other identity's cached list, so only the signed-in user's
+// accounts are ever present on this device.
+function pruneOtherAccounts(s){
+  const keep=acctKey(s);
+  try{
+    Object.keys(localStorage)
+      .filter(k=>k.startsWith(ACCT_PREFIX)&&k!==keep)
+      .forEach(k=>localStorage.removeItem(k));
+  }catch(e){}
+}
+
+// Compare on the fields the picker actually renders, so a changed name or a
+// new/removed account counts as a change but field reordering does not.
+const acctSig=list=>JSON.stringify((list||[])
+  .map(a=>[a.id,a.name,a.is_manager?1:0,a.login_customer_id||""])
+  .sort((x,y)=>x[0]<y[0]?-1:1));
+
+function ago(ts){
+  const m=Math.floor((Date.now()-ts)/60000);
+  if(m<1) return "just now";
+  if(m<60) return `${m}m ago`;
+  const h=Math.floor(m/60);
+  return h<24?`${h}h ago`:`${Math.floor(h/24)}d ago`;
+}
 
 async function ensureFresh(s){
   if(!s) return null;
@@ -327,6 +395,11 @@ function App(){
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(false);
   const [query,setQuery]=useState("");
+  const [refreshing,setRefreshing]=useState(false);
+  const [cachedAt,setCachedAt]=useState(0);
+
+  // Prefer a real client account - a manager has no search terms of its own.
+  const pickDefault=list=>((list.find(a=>!a.is_manager)||list[0]||{}).id||"");
 
   useEffect(()=>{
     fetch("/api/health").then(r=>r.json()).then(setHealth).catch(()=>{});
@@ -336,17 +409,54 @@ function App(){
     })();
   },[]);
 
-  async function loadAccounts(s){
+  // Paint the cached list immediately, then revalidate in the background and
+  // swap in the fresh one only if it actually differs.
+  async function loadAccounts(s,{quiet=false}={}){
+    pruneOtherAccounts(s);
+    const cached=readAccounts(s);
+    if(cached){
+      setAccounts(cached.accounts);
+      setCachedAt(cached.cached_at);
+      setCid(prev=>prev||pickDefault(cached.accounts));
+      if(!quiet) toast(`${cached.accounts.length} saved accounts · checking for updates…`);
+    }
+
+    setRefreshing(true);
     try{
       const d=await post("/api/accounts",{access_token:s.access_token});
-      setAccounts(d.accounts||[]);
-      if(d.accounts?.length){
-        const first=d.accounts.find(a=>!a.is_manager)||d.accounts[0];
-        setCid(first.id);
-        toast(`Loaded ${d.accounts.length} accessible account${d.accounts.length>1?"s":""}`);
-      } else toast("No accessible Google Ads accounts for this login",true);
+      const fresh=d.accounts||[];
       (d.warnings||[]).forEach(w=>console.warn("Account discovery:",w));
-    }catch(e){ toast("Account discovery failed: "+e.message,true); }
+
+      if(!fresh.length){
+        if(!cached) toast("No accessible Google Ads accounts for this login",true);
+        else toast("Refresh returned no accounts — keeping the saved list",true);
+        return;
+      }
+
+      writeAccounts(s,fresh);
+      setCachedAt(Date.now());
+
+      if(cached && acctSig(cached.accounts)===acctSig(fresh)){
+        setAccounts(fresh);                       // same set, refreshed metadata
+        return;                                   // nothing worth interrupting for
+      }
+
+      setAccounts(fresh);
+      // Keep the current selection if it survived the refresh.
+      setCid(prev=>(prev&&fresh.some(a=>a.id===prev))?prev:pickDefault(fresh));
+
+      if(!cached) toast(`Loaded ${fresh.length} accessible account${fresh.length>1?"s":""}`);
+      else{
+        const before=new Set(cached.accounts.map(a=>a.id));
+        const added=fresh.filter(a=>!before.has(a.id)).length;
+        const gone=cached.accounts.filter(a=>!fresh.some(f=>f.id===a.id)).length;
+        const bits=[added&&`${added} new`,gone&&`${gone} removed`].filter(Boolean);
+        toast(`Account list updated${bits.length?" — "+bits.join(", "):""}`);
+      }
+    }catch(e){
+      if(cached) toast(`Showing saved accounts — refresh failed: ${e.message}`,true);
+      else toast("Account discovery failed: "+e.message,true);
+    }finally{ setRefreshing(false); }
   }
 
   const account=accounts.find(a=>a.id===cid);
@@ -384,7 +494,7 @@ function App(){
         {health&&<span className="chip c-ok">Ads API {health.google_ads_api}</span>}
         {session
           ? <><span style={{fontWeight:700,fontSize:".8rem",color:"var(--ink-2)"}}>{session.display}</span>
-              <button className="btn" onClick={()=>{localStorage.removeItem(KEY);location.reload()}}>Sign out</button></>
+              <button className="btn" onClick={()=>{clearAccounts(session);localStorage.removeItem(KEY);location.reload()}}>Sign out</button></>
           : <a className="btn btn-primary" href="/api/auth/login">Sign in with Google</a>}
       </div>
     </div></header>
@@ -394,6 +504,14 @@ function App(){
         <option value="">{accounts.length?"— Select an account —":"— Sign in to load accounts —"}</option>
         {accounts.map(a=>(<option key={a.id} value={a.id}>{a.is_manager?"🏢 [MCC] ":"👤 "}{a.label}</option>))}
       </select>
+      {session&&(accounts.length>0)&&(
+        <span className="cache-note" title={cachedAt?`Account list cached ${new Date(cachedAt).toLocaleString()}`:""}>
+          {refreshing
+            ? <><span className="spin"></span> checking…</>
+            : <>updated {cachedAt?ago(cachedAt):"—"}
+                <button className="bare link" title="Re-check Google for account changes"
+                  onClick={()=>loadAccounts(session,{quiet:true})}>refresh</button></>}
+        </span>)}
       <select className="sel" value={days} onChange={e=>setDays(e.target.value)}>
         {[7,14,30,60,90].map(d=><option key={d} value={d}>Last {d} days</option>)}
       </select>
