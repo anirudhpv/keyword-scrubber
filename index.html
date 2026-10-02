@@ -94,6 +94,14 @@ tr:hover td{background:#fcfbf8}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--bd-2);border-top-color:var(--green);border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .bare{background:none;border:none;cursor:pointer;font:inherit;color:inherit;padding:0}
+.section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 10px}
+.filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.filt{display:inline-flex;align-items:center;gap:6px;padding:0 9px;border-radius:7px;border:1px solid var(--bd-2);background:var(--bg-surface)}
+.filt>span{font-size:.64rem;font-weight:800;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.filt select{border:none;background:none;outline:none;font-family:var(--sans);font-size:.76rem;font-weight:700;color:var(--ink);padding:6px 0;cursor:pointer}
+.filt.chk{padding:6px 9px;cursor:pointer}
+.filt.chk input{accent-color:var(--green);cursor:pointer;margin:0}
+.filt-note{font-size:.68rem;font-weight:700;color:var(--ink-4);white-space:nowrap}
 .cache-note{display:inline-flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;color:var(--ink-3);white-space:nowrap}
 .cache-note .link{color:var(--green);text-decoration:underline;font-weight:800}
 .cache-note .link:hover{color:var(--brand-forest,#2d6a4f)}
@@ -225,9 +233,26 @@ async function ensureFresh(s){
 // ---------- negatives tab ----------
 function NegativesTab({data,query}){
   const [open,setOpen]=useState({});
+  // Default to live spend only — a paused campaign's negatives are not
+  // currently shaping any traffic, so they are noise on first look.
+  const [campStatus,setCampStatus]=useState("ENABLED");
+  const [agStatus,setAgStatus]=useState("ENABLED");
+  const [hideEmpty,setHideEmpty]=useState(false);
   const q=query.trim().toLowerCase();
   const tog=k=>setOpen(p=>({...p,[k]:!p[k]}));
   const match=t=>!q||(t||"").toLowerCase().includes(q);
+  const statusOk=(s,want)=>want==="ALL"||(s||"").toUpperCase()===want;
+
+  const allCamps=data.campaigns||[];
+  const allAgs=data.ad_groups||[];
+  const camps=allCamps.filter(c=>statusOk(c.status,campStatus));
+  const hiddenCamps=allCamps.length-camps.length;
+  const hiddenAgs=allAgs.length-allAgs.filter(a=>statusOk(a.status,agStatus)).length;
+
+  // Offer only the statuses this account actually has, so the control never
+  // lists an option that would empty the view.
+  const campStatuses=useMemo(()=>[...new Set(allCamps.map(c=>(c.status||"").toUpperCase()))].filter(Boolean).sort(),[allCamps]);
+  const agStatuses=useMemo(()=>[...new Set(allAgs.map(a=>(a.status||"").toUpperCase()))].filter(Boolean).sort(),[allAgs]);
 
   const agByCamp=useMemo(()=>{
     const m={}; (data.ad_groups||[]).forEach(a=>{(m[a.campaign_id]=m[a.campaign_id]||[]).push(a)}); return m;
@@ -269,14 +294,48 @@ function NegativesTab({data,query}){
       </div>
     ))}
 
-    <h3 style={{fontFamily:"var(--serif)",fontSize:"1.05rem",margin:"22px 0 10px"}}>
-      Campaigns <span className="pill">{(data.campaigns||[]).length}</span>
-    </h3>
-    {(data.campaigns||[]).map(c=>{
+    <div className="section-head">
+      <h3 style={{fontFamily:"var(--serif)",fontSize:"1.05rem",margin:0}}>
+        Campaigns <span className="pill">{camps.length}{hiddenCamps>0?` of ${allCamps.length}`:""}</span>
+      </h3>
+      <div className="filters">
+        <label className="filt">
+          <span>Campaigns</span>
+          <select value={campStatus} onChange={e=>setCampStatus(e.target.value)}>
+            <option value="ENABLED">Active only</option>
+            {campStatuses.filter(s=>s!=="ENABLED").map(s=><option key={s} value={s}>{s.toLowerCase()} only</option>)}
+            <option value="ALL">All statuses</option>
+          </select>
+        </label>
+        <label className="filt">
+          <span>Ad groups</span>
+          <select value={agStatus} onChange={e=>setAgStatus(e.target.value)}>
+            <option value="ENABLED">Active only</option>
+            {agStatuses.filter(s=>s!=="ENABLED").map(s=><option key={s} value={s}>{s.toLowerCase()} only</option>)}
+            <option value="ALL">All statuses</option>
+          </select>
+        </label>
+        <label className="filt chk" title="Hide campaigns and ad groups that have no negative keywords">
+          <input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>
+          <span>With negatives only</span>
+        </label>
+        {(hiddenCamps>0||hiddenAgs>0)&&(
+          <span className="filt-note">
+            {[hiddenCamps&&`${hiddenCamps} campaign${hiddenCamps>1?"s":""}`,
+              hiddenAgs&&`${hiddenAgs} ad group${hiddenAgs>1?"s":""}`].filter(Boolean).join(" · ")} hidden
+          </span>)}
+      </div>
+    </div>
+    {camps.length===0&&<div className="card"><div className="card-b" style={{color:"var(--ink-3)"}}>
+      No campaigns match this filter{allCamps.length?` — ${allCamps.length} exist at other statuses.`:"."}
+    </div></div>}
+    {camps.map(c=>{
       const cn=(campNegBy[c.id]||[]).filter(n=>match(n.text));
-      const ags=agByCamp[c.id]||[];
+      const ags=(agByCamp[c.id]||[]).filter(a=>statusOk(a.status,agStatus))
+        .filter(a=>!hideEmpty||(agNegBy[a.id]||[]).length);
       const agHits=ags.reduce((s,a)=>s+(agNegBy[a.id]||[]).filter(n=>match(n.text)).length,0);
       if(q&&!cn.length&&!agHits&&!match(c.name)) return null;
+      if(hideEmpty&&!cn.length&&!ags.some(a=>(agNegBy[a.id]||[]).length)) return null;
       return (
         <div className="card" key={c.id}>
           <div className="card-h" onClick={()=>tog("C"+c.id)}>
@@ -285,7 +344,7 @@ function NegativesTab({data,query}){
               <span className="pill">{c.status}</span>
               <span className="pill">{money(c.budget_daily)}/day</span>
               <span className="pill">{cn.length} campaign negs</span>
-              <span className="pill">{ags.length} ad groups</span>
+              <span className="pill">{ags.length} ad group{ags.length===1?"":"s"}</span>
             </div>
           </div>
           {open["C"+c.id]&&<div className="card-b">
@@ -294,7 +353,12 @@ function NegativesTab({data,query}){
               {cn.length?cn.map((n,i)=>(<span className="kw amber" key={i}>{n.text}<span className="mt">{n.match_type}</span></span>))
                 :<span style={{color:"var(--ink-3)",fontSize:".8rem"}}>None.</span>}
             </div>
-            <div style={{fontSize:".68rem",fontWeight:800,color:"var(--ink-3)",textTransform:"uppercase",marginBottom:6}}>Ad groups</div>
+            <div style={{fontSize:".68rem",fontWeight:800,color:"var(--ink-3)",textTransform:"uppercase",marginBottom:6}}>
+              Ad groups <span className="pill">{ags.length}</span>
+              {agStatus!=="ALL"&&<span className="pill">{agStatus.toLowerCase()} only</span>}
+            </div>
+            {ags.length===0&&<div style={{color:"var(--ink-4)",fontSize:".78rem",paddingBottom:6}}>
+              No ad groups at this status.</div>}
             {ags.map(a=>{
               const an=(agNegBy[a.id]||[]).filter(n=>match(n.text));
               if(q&&!an.length&&!match(a.name)) return null;
