@@ -134,6 +134,12 @@ tr:hover td{background:#fcfbf8}
 .cache-note{display:inline-flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;color:var(--ink-3);white-space:nowrap}
 .cache-note .link{color:var(--green);text-decoration:underline;font-weight:800}
 .cache-note .link:hover{color:var(--brand-forest,#2d6a4f)}
+.user-badge{display:inline-flex;align-items:center;gap:8px;padding:3px 10px 3px 4px;border-radius:24px;background:var(--bg-subtle);border:1px solid var(--bd-2)}
+.user-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;display:block}
+.user-avatar-initials{width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.72rem;letter-spacing:.02em}
+.user-info{display:flex;flex-direction:column;line-height:1.2}
+.user-name{font-weight:700;font-size:.78rem;color:var(--ink)}
+.user-email{font-size:.68rem;color:var(--ink-3);font-weight:500}
 </style>
 </head>
 <body>
@@ -764,7 +770,14 @@ function App(){
           JEV {health.jev?.reachable?"online":"offline"}</span>}
         {health&&<span className="chip c-ok">Ads API {health.google_ads_api}</span>}
         {session
-          ? <><span style={{fontWeight:700,fontSize:".8rem",color:"var(--ink-2)"}}>{session.display}</span>
+          ? <><div className="user-badge" title={session.email || session.display || "Signed in"}>
+                {session.picture ? <img className="user-avatar" src={session.picture} alt="" referrerPolicy="no-referrer" onError={e=>{e.target.style.display="none";}} /> : null}
+                {!session.picture && <div className="user-avatar-initials">{((session.name || session.email || "U").trim()[0] || "U").toUpperCase()}</div>}
+                <div className="user-info">
+                  <span className="user-name">{session.name || (session.email ? session.email.split("@")[0] : "Google User")}</span>
+                  {session.email && <span className="user-email">{session.email}</span>}
+                </div>
+              </div>
               <button className="btn" onClick={()=>{clearAccounts(session);localStorage.removeItem(KEY);location.reload()}}>Sign out</button></>
           : <a className="btn btn-primary" href="/api/auth/login">Sign in with Google</a>}
       </div>
