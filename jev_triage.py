@@ -9,6 +9,7 @@ Division of labour:
     placement rules, because those are deterministic and must not guess.
 """
 import os
+import re
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -269,6 +270,7 @@ def triage(
 
     return {
         "recommendations": recommendations,
+        "clusters": cluster_recommendations(recommendations),
         "summary": {
             "terms_analysed": len(aggregated),
             "jev_questions": len(questions),
@@ -488,3 +490,70 @@ def _best_shared_list(near, flat_negs) -> Optional[Dict[str, Any]]:
                 "confidence": near.get("confidence", 0.0),
             }
     return None
+
+
+
+def cluster_recommendations(recommendations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    stopwords = {
+        "a", "about", "an", "and", "are", "as", "at", "be", "by", "com", "for",
+        "from", "how", "i", "in", "is", "it", "of", "on", "or", "that", "the",
+        "this", "to", "was", "what", "when", "where", "who", "will", "with", "www"
+    }
+    groups = defaultdict(lambda: {
+        "theme": "",
+        "intent": "",
+        "terms": [],
+        "total_cost": 0.0,
+        "total_clicks": 0,
+        "total_conv": 0.0,
+        "suggested_root": "",
+        "root_match_type": "BROAD",
+        "recommended_action": "BLOCK_ROOT_SHARED",
+        "word_freq": defaultdict(int),
+    })
+
+    for r in recommendations:
+        intent = r.get("intent_group") or "unclassified"
+        term = r.get("term", "").lower().strip()
+        cost = float(r.get("cost", 0.0))
+        clicks = int(r.get("clicks", 0))
+        conv = float(r.get("conversions", 0.0))
+        suggested = (r.get("suggested_keyword") or "").lower().strip()
+
+        words = [w for w in re.findall(r"\b[a-z0-9_-]+\b", term) if w not in stopwords and len(w) > 2]
+        primary_key = suggested if suggested and len(suggested.split()) <= 2 else (intent if intent != "unclassified" else (words[0] if words else "other"))
+        cluster_id = f"{intent}:{primary_key}"
+
+        g = groups[cluster_id]
+        g["theme"] = primary_key.title() if primary_key else "General"
+        g["intent"] = intent
+        g["terms"].append(r)
+        g["total_cost"] += cost
+        g["total_clicks"] += clicks
+        g["total_conv"] += conv
+        for w in words:
+            g["word_freq"][w] += 1
+
+    result = []
+    for cid, g in groups.items():
+        terms = g["terms"]
+        if not terms:
+            continue
+        sorted_words = sorted(g["word_freq"].items(), key=lambda x: (x[1], len(x[0])), reverse=True)
+        best_root = sorted_words[0][0] if sorted_words else g["theme"].lower()
+        g["suggested_root"] = best_root
+        g["total_cost"] = round(g["total_cost"], 2)
+        g["total_conv"] = round(g["total_conv"], 2)
+        if g["total_conv"] > 0:
+            g["recommended_action"] = "PROMOTE_CLUSTER"
+        elif g["intent"] in ("employment", "freebie", "support"):
+            g["recommended_action"] = "BLOCK_ROOT_SHARED"
+        elif len(terms) >= 3 and g["total_cost"] > 10:
+            g["recommended_action"] = "BLOCK_ROOT_CAMPAIGN"
+        else:
+            g["recommended_action"] = "TRIAGE_INDIVIDUAL"
+        del g["word_freq"]
+        result.append(dict(g))
+
+    result.sort(key=lambda x: (x["total_cost"], len(x["terms"])), reverse=True)
+    return result

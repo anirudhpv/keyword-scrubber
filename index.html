@@ -140,6 +140,48 @@ tr:hover td{background:#fcfbf8}
 .user-info{display:flex;flex-direction:column;line-height:1.2}
 .user-name{font-weight:700;font-size:.78rem;color:var(--ink)}
 .user-email{font-size:.68rem;color:var(--ink-3);font-weight:500}
+
+.cluster-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:20px}
+.cluster-card{background:var(--bg-surface);border:1px solid var(--bd);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;transition:box-shadow .15s}
+.cluster-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.06)}
+.cluster-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.cluster-title{font-size:.95rem;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px}
+.cluster-stats{display:flex;gap:8px;font-size:.74rem;color:var(--ink-3);font-weight:600}
+.cluster-root{background:var(--bg-subtle);border:1px dashed var(--bd-2);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.root-pill{font-family:var(--mono);font-weight:700;font-size:.82rem;color:var(--red);background:var(--red-lt);padding:2px 8px;border-radius:4px}
+.cluster-terms{display:flex;flex-wrap:wrap;gap:5px;max-height:140px;overflow-y:auto;padding-right:4px}
+.term-tag{font-size:.72rem;font-family:var(--mono);background:var(--bg-subtle);border:1px solid var(--bd);padding:2px 6px;border-radius:4px;color:var(--ink-2)}
+.cluster-actions{display:flex;gap:6px;margin-top:auto;padding-top:8px;border-top:1px solid var(--bd)}
+.btn-action{flex:1;font-size:.74rem;padding:6px 8px;border-radius:6px;font-weight:700;text-align:center;cursor:pointer}
+.btn-block{background:var(--red-lt);color:var(--red);border:1px solid var(--red-bd)}
+.btn-promote{background:var(--green-lt);color:var(--green);border:1px solid var(--green-bd)}
+
+
+.canvas-drawer{position:absolute;top:0;right:0;width:340px;height:100%;background:var(--bg-surface);border-left:1px solid var(--bd);box-shadow:-4px 0 16px rgba(0,0,0,.08);padding:18px;display:flex;flex-direction:column;gap:12px;z-index:40;overflow-y:auto}
+.drawer-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--bd);padding-bottom:10px}
+.drawer-title{font-size:.95rem;font-weight:700;color:var(--ink)}
+.drawer-sub{font-size:.72rem;color:var(--ink-3);font-weight:600;text-transform:uppercase;margin-top:2px}
+.drawer-list{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;padding-right:4px}
+.drawer-item{display:flex;justify-content:space-between;align-items:center;background:var(--bg-subtle);border:1px solid var(--bd);padding:6px 10px;border-radius:6px;font-family:var(--mono);font-size:.75rem;font-weight:700}
+
+
+.queue-container{max-width:620px;margin:20px auto 40px;display:flex;flex-direction:column;gap:16px}
+.queue-card{background:var(--bg-surface);border:2px solid var(--bd-2);border-radius:18px;padding:26px;box-shadow:0 8px 30px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:18px;position:relative}
+.queue-badge{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:800;text-transform:uppercase;padding:4px 10px;border-radius:20px}
+.queue-term{font-family:var(--serif);font-size:1.6rem;font-weight:700;color:var(--ink);line-height:1.25}
+.queue-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:var(--bg-subtle);padding:12px;border-radius:10px;text-align:center}
+.queue-meta-k{font-size:.65rem;font-weight:800;color:var(--ink-3);text-transform:uppercase}
+.queue-meta-v{font-family:var(--mono);font-size:1.15rem;font-weight:700;margin-top:2px}
+.queue-suggestion{border-left:3px solid var(--amber);padding:8px 12px;background:#fffbeb;border-radius:0 8px 8px 0;font-size:.8rem;color:#92400e}
+.queue-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px}
+.queue-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 10px;border-radius:12px;cursor:pointer;border:2px solid var(--bd);background:var(--bg-surface);font-family:var(--sans);font-weight:800;transition:.15s}
+.queue-btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.queue-btn.block{border-color:var(--red-bd);background:var(--red-lt);color:var(--red)}
+.queue-btn.skip{border-color:var(--bd-2);background:var(--bg-subtle);color:var(--ink-2)}
+.queue-btn.graduate{border-color:var(--green-bd);background:var(--green-lt);color:var(--green)}
+.queue-progress{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;font-weight:700;color:var(--ink-3);margin-bottom:4px}
+.queue-tray{margin-top:20px;background:var(--bg-surface);border:1px solid var(--bd);border-radius:12px;padding:16px}
+
 </style>
 </head>
 <body>
@@ -368,9 +410,9 @@ function StructureTab({data,filters,setFilters,query}){
 
   const onDown=e=>{ drag.current={sx:e.clientX,sy:e.clientY,ox:view.x,oy:view.y}; };
   const onMove=e=>{
-    if(!drag.current) return;
-    setView(v=>({...v,x:drag.current.ox+(e.clientX-drag.current.sx),
-                       y:drag.current.oy+(e.clientY-drag.current.sy)}));
+    const d=drag.current;
+    if(!d || typeof d.ox !== "number") return;
+    setView(v=>({...v,x:d.ox+(e.clientX-d.sx),y:d.oy+(e.clientY-d.sy)}));
   };
   const onUp=()=>{ drag.current=null; };
   const zoom=d=>setView(v=>({...v,k:Math.min(1.6,Math.max(0.35,+(v.k+d).toFixed(2)))}));
@@ -428,7 +470,7 @@ function StructureTab({data,filters,setFilters,query}){
               const isCol=!!collapsed[c.id];
               return (
                 <div key={n.id} className={"nd nd-camp"+(sel===n.id?" on":"")}
-                     style={{left:n.x,top:n.y,width:n.w}} onClick={()=>setSel(sel===n.id?null:n.id)}>
+                     style={{left:n.x,top:n.y,width:n.w}} onClick={()=>{ setSel(sel===n.id?null:n.id); if(n.childCount>0) setCollapsed(p=>({...p,[c.id]:!p[c.id]})); }}>
                   <div className="nd-k">
                     Campaign · {c.type}
                     <span className={"dot "+((c.status||"").toUpperCase()==="ENABLED"?"live":"off")}
@@ -450,7 +492,7 @@ function StructureTab({data,filters,setFilters,query}){
             const a=n.data;
             return (
               <div key={n.id} className={"nd nd-ag"+(sel===n.id?" on":"")}
-                   style={{left:n.x,top:n.y,width:n.w}} onClick={()=>setSel(sel===n.id?null:n.id)}>
+                   style={{left:n.x,top:n.y,width:n.w}} onClick={()=>{ setSel(sel===n.id?null:n.id); if(n.childCount>0) setCollapsed(p=>({...p,[c.id]:!p[c.id]})); }}>
                 <div className="nd-k">
                   Ad group
                   <span className={"dot "+((a.status||"").toUpperCase()==="ENABLED"?"live":"off")}
@@ -465,6 +507,43 @@ function StructureTab({data,filters,setFilters,query}){
               </div>);
           })}
         </div>
+
+        {sel && (()=>{
+          const isAg = !!(data.ad_groups||[]).find(a=>a.id===sel);
+          const isCamp = !!(data.campaigns||[]).find(c=>c.id===sel);
+          const agObj = (data.ad_groups||[]).find(a=>a.id===sel);
+          const campObj = (data.campaigns||[]).find(c=>c.id===sel);
+          const title = isAg ? agObj.name : (isCamp ? campObj.name : "Selected Entity");
+          const type = isAg ? "Ad Group Negatives" : (isCamp ? "Campaign Negatives" : "Negatives");
+          const negs = isAg
+            ? (data.adgroup_negatives||[]).filter(n=>n.ad_group_id===sel)
+            : (isCamp ? (data.campaign_negatives||[]).filter(n=>n.campaign_id===sel) : []);
+          return (
+            <div className="canvas-drawer">
+              <div className="drawer-head">
+                <div>
+                  <div className="drawer-title">{title}</div>
+                  <div className="drawer-sub">{type} ({negs.length})</div>
+                </div>
+                <button className="bare" style={{fontSize:"1.1rem",cursor:"pointer",padding:4}} onClick={()=>setSel(null)}>✕</button>
+              </div>
+              <div>
+                <div style={{fontSize:".7rem",fontWeight:800,color:"var(--ink-3)",textTransform:"uppercase",marginBottom:8}}>Active Negative Keywords</div>
+                {negs.length === 0
+                  ? <div style={{color:"var(--ink-4)",fontSize:".8rem",fontStyle:"italic",padding:"12px 0"}}>No negative keywords scoped here.</div>
+                  : <div className="drawer-list">
+                      {negs.map((n,i)=>(
+                        <div className="drawer-item" key={i}>
+                          <span style={{color:"var(--red)"}}>{n.keyword}</span>
+                          <span className="pill" style={{fontSize:".62rem"}}>{n.match_type}</span>
+                        </div>
+                      ))}
+                    </div>
+                }
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   </div>);
@@ -588,6 +667,20 @@ function NegativesTab({data,query,filters,setFilters}){
 
 // ---------- triage tab ----------
 function TriageTab({data,query}){
+  useEffect(()=>{
+    const onKey = (e) => {
+      if (["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)) return;
+      if (e.key === "b" || e.key === "B") document.querySelector(".queue-btn.block")?.click();
+      if (e.key === "s" || e.key === "S") document.querySelector(".queue-btn.skip")?.click();
+      if (e.key === "g" || e.key === "G") document.querySelector(".queue-btn.graduate")?.click();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  },[]);
+  const [viewMode,setViewMode]=useState("queue");
+  const [qIndex,setQIndex]=useState(0);
+  const [decisions,setDecisions]=useState([]);
+  const clusters=data.clusters||[];
   const [filter,setFilter]=useState("ACTIONABLE");
   const recs=data.recommendations||[];
   const q=query.trim().toLowerCase();
@@ -611,6 +704,11 @@ function TriageTab({data,query}){
 
   return (<div>
     <div className="bar-in" style={{marginBottom:14,padding:0}}>
+      <div style={{display:"flex",gap:4,background:"var(--bg-subtle)",padding:2,borderRadius:8,border:"1px solid var(--bd-2)"}}>
+        <button className={"btn "+(viewMode==="queue"?"btn-primary":"bare")} style={{padding:"5px 12px",fontSize:".76rem"}} onClick={()=>setViewMode("queue")}>⚡ Rapid Triage Queue</button>
+        <button className={"btn "+(viewMode==="clusters"?"btn-primary":"bare")} style={{padding:"5px 12px",fontSize:".76rem"}} onClick={()=>setViewMode("clusters")}>📦 Clusters ({clusters.length})</button>
+        <button className={"btn "+(viewMode==="table"?"btn-primary":"bare")} style={{padding:"5px 12px",fontSize:".76rem"}} onClick={()=>setViewMode("table")}>📋 Table ({recs.length})</button>
+      </div>
       <select className="sel" value={filter} onChange={e=>setFilter(e.target.value)}>
         <option value="ACTIONABLE">Actionable only ({ACTIONABLE.reduce((s,a)=>s+(counts[a]||0),0)})</option>
         <option value="ALL">All ({recs.length})</option>
@@ -620,7 +718,151 @@ function TriageTab({data,query}){
       <span className="pill">JEV ran {data.summary?.jev_questions||0} decisions in {data.summary?.jev_latency_ms||0}ms</span>
     </div>
 
-    <div className="card">
+    
+    
+    {viewMode==="queue" && (()=>{
+      const queueList = recs.filter(r => r.action !== "ALREADY_COVERED");
+      const current = queueList[qIndex];
+      const handleDecision = (type) => {
+        if (!current) return;
+        setDecisions(prev => [...prev, { term: current.term, action: type, root: current.suggested_keyword || current.term, cost: current.cost }]);
+        if (qIndex < queueList.length - 1) setQIndex(i => i + 1);
+        else toast("All terms triaged!");
+      };
+      const copyDecisions = () => {
+        const tsv = decisions.map(d => [d.term, d.action, d.root, money(d.cost)].join("\t")).join("\n");
+        navigator.clipboard.writeText("Term\tAction\tNegative/Target\tCost\n" + tsv);
+        toast("Copied " + decisions.length + " triaged actions to clipboard!");
+      };
+      if (!current) {
+        return (
+          <div className="queue-container">
+            <div className="card" style={{padding:40,textAlign:"center"}}>
+              <div style={{fontSize:"2.4rem"}}>🎉</div>
+              <h3 style={{fontFamily:"var(--serif)",fontSize:"1.4rem",margin:"12px 0 6px"}}>Queue Complete!</h3>
+              <p style={{color:"var(--ink-3)",fontSize:".85rem",marginBottom:16}}>You have triaged {decisions.length} search terms.</p>
+              {decisions.length > 0 && (
+                <button className="btn btn-primary" onClick={copyDecisions}>📋 Copy Triaged Decisions (TSV)</button>
+              )}
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div className="queue-container">
+          <div className="queue-progress">
+            <span>Card {qIndex + 1} of {queueList.length}</span>
+            <span>{decisions.length} Decided</span>
+          </div>
+          <div className="queue-card">
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span className={"queue-badge " + (current.intent_group === "commercial" ? "c-ok" : "c-off")}>
+                {current.intent_group ? "Intent: " + current.intent_group : "Unclassified Intent"}
+              </span>
+              <span style={{fontSize:".74rem",color:"var(--ink-4)",fontWeight:700}}>Press [B] Block · [S] Skip · [G] Graduate</span>
+            </div>
+            <div className="queue-term">"{current.term}"</div>
+            <div className="queue-meta">
+              <div>
+                <div className="queue-meta-k">Spend</div>
+                <div className="queue-meta-v" style={{color:"var(--red)"}}>{money(current.cost)}</div>
+              </div>
+              <div>
+                <div className="queue-meta-k">Clicks</div>
+                <div className="queue-meta-v">{current.clicks}</div>
+              </div>
+              <div>
+                <div className="queue-meta-k">Conversions</div>
+                <div className="queue-meta-v" style={{color:current.conversions>0?"var(--green)":"var(--ink-4)"}}>{current.conversions}</div>
+              </div>
+            </div>
+            <div className="queue-suggestion">
+              <strong>Recommendation: </strong> {current.reason}
+            </div>
+            <div className="queue-actions">
+              <button className="queue-btn block" onClick={()=>handleDecision("BLOCK_NEGATIVE")}>
+                <span style={{fontSize:"1.4rem"}}>🛡️</span>
+                <span style={{marginTop:4}}>Block Negative</span>
+                <span style={{fontSize:".65rem",opacity:.75,fontWeight:600}}>Add as negative</span>
+              </button>
+              <button className="queue-btn skip" onClick={()=>handleDecision("SKIP_KEEP")}>
+                <span style={{fontSize:"1.4rem"}}>⏭️</span>
+                <span style={{marginTop:4}}>Skip</span>
+                <span style={{fontSize:".65rem",opacity:.75,fontWeight:600}}>Keep traffic</span>
+              </button>
+              <button className="queue-btn graduate" onClick={()=>handleDecision("GRADUATE_STAG")}>
+                <span style={{fontSize:"1.4rem"}}>🚀</span>
+                <span style={{marginTop:4}}>Graduate</span>
+                <span style={{fontSize:".65rem",opacity:.75,fontWeight:600}}>Make Positive Keyword</span>
+              </button>
+            </div>
+          </div>
+          {decisions.length > 0 && (
+            <div className="queue-tray">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <strong style={{fontSize:".8rem",color:"var(--ink)"}}>Triaged Decision Tray ({decisions.length})</strong>
+                <button className="btn" style={{padding:"3px 8px",fontSize:".72rem"}} onClick={copyDecisions}>📋 Copy Batch</button>
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4,maxHeight:120,overflowY:"auto"}}>
+                {decisions.map((d,i)=>(
+                  <span className={"pill " + (d.action==="BLOCK_NEGATIVE"?"red":d.action==="GRADUATE_STAG"?"green":"")} key={i}>
+                    {d.term} · {d.action}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    })()}
+  
+    {viewMode==="clusters" && (
+      <div className="cluster-grid">
+        {clusters.length===0 && <div className="card" style={{gridColumn:"1/-1",padding:32,textAlign:"center",color:"var(--ink-3)"}}>No intent clusters identified yet.</div>}
+        {clusters.map((c,idx)=>{
+          const isNegative = c.recommended_action.startsWith("BLOCK");
+          return (
+            <div className="cluster-card" key={idx}>
+              <div className="cluster-h">
+                <div>
+                  <div className="cluster-title">🏷️ {c.theme}</div>
+                  <div style={{fontSize:".7rem",color:"var(--ink-3)",fontWeight:700,textTransform:"uppercase",marginTop:2}}>Intent: {c.intent}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontWeight:800,color:c.total_cost>0?"var(--red)":"var(--ink-3)",fontFamily:"var(--mono)",fontSize:".88rem"}}>{money(c.total_cost)}</div>
+                  <div className="cluster-stats">{c.total_clicks} clicks · {c.total_conv} conv</div>
+                </div>
+              </div>
+              <div className="cluster-root">
+                <div>
+                  <div style={{fontSize:".68rem",fontWeight:800,color:"var(--ink-3)",textTransform:"uppercase"}}>Proactive Root Negative</div>
+                  <span className="root-pill">"{c.suggested_root}"</span>
+                </div>
+                <span className="pill" style={{fontFamily:"var(--mono)",fontSize:".65rem"}}>{c.root_match_type} MATCH</span>
+              </div>
+              <div>
+                <div style={{fontSize:".68rem",fontWeight:800,color:"var(--ink-3)",textTransform:"uppercase",marginBottom:4}}>Search Terms ({c.terms.length})</div>
+                <div className="cluster-terms">
+                  {c.terms.map((t,ti)=><span className="term-tag" key={ti} title={"$" + t.cost + " · " + t.clicks + " clicks"}>{t.term}</span>)}
+                </div>
+              </div>
+              <div className="cluster-actions">
+                {isNegative ? (
+                  <>
+                    <button className="btn-action btn-block" onClick={()=>{navigator.clipboard.writeText(c.suggested_root);toast("Copied root: " + c.suggested_root);}}>🛡️ Copy Root Negative</button>
+                    <button className="btn-action bare" style={{border:"1px solid var(--bd-2)"}} onClick={()=>{navigator.clipboard.writeText(c.terms.map(t=>t.term).join("\n"));toast("Copied " + c.terms.length + " exact terms");}}>Copy All ({c.terms.length})</button>
+                  </>
+                ) : (
+                  <button className="btn-action btn-promote" onClick={()=>{navigator.clipboard.writeText(c.terms.map(t=>t.term).join("\n"));toast("Copied " + c.terms.length + " converting terms to promote");}}>🚀 Graduate to STAG</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+    {viewMode==="table" && (
+  <div className="card">
       <table>
         <thead><tr>
           <th>Search term</th><th className="num">Cost</th><th className="num">Clicks</th>
@@ -655,7 +897,7 @@ function TriageTab({data,query}){
         </tbody>
       </table>
     </div>
-  </div>);
+    )}  </div>);
 }
 
 // ---------- app ----------

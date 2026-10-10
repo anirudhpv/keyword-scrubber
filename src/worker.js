@@ -1,5 +1,5 @@
 /**
- * JevAds Cloudflare Worker - Google Ads negative-keyword viewer and
+ * Keyword Scrubber Cloudflare Worker - Google Ads negative-keyword viewer and
  * search-term triage.
  *
  * A port of api.py + google_ads.py onto the Workers runtime, route for route
